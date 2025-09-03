@@ -1,18 +1,20 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* --- Coastal Breeze Light Theme --- */
 :root {
-  --background: #f0f2f5;
-  --foreground: #1a202c;
-  --primary: #2563eb;
+  --background: #f0f7ff; /* Light sky blue */
+  --foreground: #2d3748; /* Dark slate gray */
+  --primary: #0077b6;    /* Vibrant ocean blue */
   --primary-foreground: #ffffff;
   --card: #ffffff;
-  --card-foreground: #1a202c;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --water-color: #2563eb;
+  --card-foreground: #2d3748;
+  --muted: #e2e8f0;      /* Soft gray */
+  --muted-foreground: #4a5568; /* Medium slate gray */
+  --water-color: #007bff;
 }
 
+/* --- Midnight Ocean Dark Theme --- */
 .dark {
   --background: #0d1117;
   --foreground: #e6edf3;
@@ -25,14 +27,29 @@
   --water-color: #007bff;
 }
 
+/* Animated Gradient Background */
+@keyframes gradient-animation {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  overflow: hidden; /* Prevent scrollbars during animation */
+
+  background: linear-gradient(-45deg, #e0f2fe, #f0f7ff, #e6f7ff, #dcf8ff);
+  background-size: 400% 400%;
+  animation: gradient-animation 25s ease infinite;
 }
 
-/* Custom scrollbar for a more modern look */
+.dark body {
+  background: var(--background);
+  animation: none;
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -48,7 +65,7 @@ body {
   background: transparent;
 }
 
-/* --- Cinematic Wave Animation Styles --- */
+/* Cinematic Wave Animation Styles */
 .wave-animation-overlay {
   position: fixed;
   top: 0;
@@ -57,62 +74,52 @@ body {
   height: 100vh;
   overflow: hidden;
   pointer-events: none;
-  z-index: 100; /* Ensure it covers the navbar */
+  z-index: 100;
   animation: wave-sequence 5s ease-in-out forwards;
 }
-
 .wave {
   position: absolute;
-  bottom: 0; /* Start at the bottom of the viewport */
+  bottom: 0;
   left: 50%;
   width: 200%;
   height: 200%;
-  border-radius: 45% 45% 0 0; /* Creates the curved shape */
-  transform: translateX(-50%) translateY(100%); /* Initially off-screen below */
+  border-radius: 45% 45% 0 0;
+  transform: translateX(-50%) translateY(100%);
   background: var(--water-color);
   opacity: 0.9;
   animation: wave-motion-cinematic 5s ease-in-out forwards;
 }
-
 .wave-back {
   animation-delay: 0s;
   background: color-mix(in srgb, var(--water-color) 80%, black);
 }
-
 .wave-mid {
   animation-delay: 0.2s;
   background: color-mix(in srgb, var(--water-color) 90%, black);
 }
-
 .wave-front {
   animation-delay: 0.4s;
   background: var(--water-color);
 }
-
 @keyframes wave-motion-cinematic {
   0% { transform: translateX(-50%) translateY(100%) rotate(0deg); }
-  20% { transform: translateX(-50%) translateY(-20%) rotate(-5deg); } /* Ascends to cover the screen */
-  50% { transform: translateX(-50%) translateY(-10%) rotate(5deg); } /* Fills the screen */
-  80% { transform: translateX(-50%) translateY(-15%) rotate(-2deg); } /* Recoils a bit */
-  100% { transform: translateX(-50%) translateY(100%) rotate(0deg); } /* Descends back to the bottom */
+  20% { transform: translateX(-50%) translateY(-20%) rotate(-5deg); }
+  50% { transform: translateX(-50%) translateY(-10%) rotate(5deg); }
+  80% { transform: translateX(-50%) translateY(-15%) rotate(-2deg); }
+  100% { transform: translateX(-50%) translateY(100%) rotate(0deg); }
 }
-
 @keyframes wave-sequence {
   0% { opacity: 1; }
   100% { opacity: 0; }
 }
-
-/* --- Dripping Effect Styles on Navbar --- */
 .dripping-container {
   position: relative;
   overflow: visible;
 }
-
 .dripping-container > * {
   position: relative;
-  z-index: 101; /* Ensure content is above drips */
+  z-index: 101;
 }
-
 .dripping-container::before,
 .dripping-container::after {
     content: "";
@@ -123,19 +130,16 @@ body {
     height: 0;
     background-color: var(--water-color);
     pointer-events: none;
-    z-index: 99; /* Below the content but visible */
+    z-index: 99;
     opacity: 0;
     border-radius: 50%;
     animation: drip-fall 1.5s ease-in-out forwards;
-    animation-delay: 4.5s; /* Starts dripping as wave recedes */
+    animation-delay: 4.5s;
 }
-
 .dripping-container::after {
     left: 70%;
     animation-delay: 4.7s;
 }
-
-/* Final prominent drop for the "whale's head" metaphor */
 .dripping-container:last-child::before {
     left: 50%;
     width: 6px;
@@ -144,24 +148,19 @@ body {
     animation: last-drip-fall 1.5s ease-in-out forwards;
     animation-delay: 5s;
 }
-
 @keyframes drip-fall {
   0% { transform: translateY(0); height: 0; opacity: 1; }
   20% { height: 10px; opacity: 1; }
   100% { transform: translateY(40px); height: 10px; opacity: 0; }
 }
-
 @keyframes last-drip-fall {
     0% { transform: translateY(0); height: 0; width: 0; opacity: 1; }
     50% { transform: translateY(20px); height: 10px; width: 6px; opacity: 1; }
     100% { transform: translateY(50px); height: 10px; width: 6px; opacity: 0; }
 }
-
-/* Existing animations for other components */
-@keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-    animation: fade-in 0.5s ease-out forwards;
-}
+@keyframes spin { to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+@keyframes plot-appear { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.animate-plot-appear { animation: plot-appear 0.6s ease-out forwards; }
