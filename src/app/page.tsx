@@ -2,58 +2,68 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { LatLngExpression } from "leaflet";
 
-/**
- * NOTE:
- * - react-plotly.js is loaded dynamically (client-only).
- * - We keep this page as a client component ("use client") because it uses hooks and client-only libs.
- */
-
-// dynamic import Plotly (client-side only)
+// Dynamically import Plotly for charting
 const Plot = dynamic(() => import("react-plotly.js"), {
   ssr: false,
-}) as typeof import("react-plotly.js").default;
-
-// Fix leaflet marker icon paths (common issue)
-delete (L.Icon.Default as any).prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png").default,
-  iconUrl: require("leaflet/dist/images/marker-icon.png").default,
-  shadowUrl: require("leaflet/dist/images/marker-shadow.png").default,
 });
 
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+// Dynamically import the Map component to prevent SSR issues
+const Map = dynamic(() => import("./components/Map"), {
+  ssr: false,
+  loading: () => <p className="text-center">Loading map...</p>,
+});
 
 export default function Page() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [activeTab, setActiveTab] = useState<"chat" | "visualize" | "compare" | "insights" | "about">(
     "chat"
   );
-
-  // mock chat messages
   const [messages, setMessages] = useState([
     { id: 1, who: "system", text: "Ask about floats, e.g., show salinity near equator in March 2023" },
   ]);
 
-  // mock floats
-  const mockFloats = [
-    { id: 1, lat: 0.5, lon: 20.5 },
-    { id: 2, lat: 5.2, lon: 40.1 },
-    { id: 3, lat: -10.3, lon: 80.4 },
-  ];
+  // State for map view control
+  const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
+  const [mapZoom, setMapZoom] = useState(4);
+
+  // State for new filters, matching the image provided
+  const [filters, setFilters] = useState({
+    startDate: "2023-03-01",
+    endDate: "2023-03-31",
+    region: "Equatorial Region",
+    parameter: "Salinity",
+    floatId: "",
+  });
+
+  // Handle filter input changes
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+  };
+  
+  // Apply button functionality
+  const handleApplyFilters = () => {
+    console.log("Applying Filters:", filters);
+    
+    // Zoom to mock float location as an example action
+    const mockFloatLocation: LatLngExpression = [-15.0, 75.0];
+    setMapCenter(mockFloatLocation);
+    setMapZoom(7);
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  // sample data for plots (mock)
+  // Sample data for plots
   const salinityProfile = {
-    x: [34.4, 35.0, 35.6, 35.8, 36.0], // salinity PSU
-    y: [0, 50, 200, 500, 1000], // depth (m)
+    x: [34.4, 35.0, 35.6, 35.8, 36.0],
+    y: [0, 50, 200, 500, 1000],
   };
-
   const compareA = { x: [0, 100, 200], y: [10, 20, 15] };
   const compareB = { x: [0, 100, 200], y: [12, 18, 17] };
 
@@ -65,7 +75,6 @@ export default function Page() {
           <div className="rounded-full bg-white/20 w-10 h-10 flex items-center justify-center text-lg">🌊</div>
           <h1 className="text-xl font-semibold">ARGO Explorer</h1>
         </div>
-
         <nav className="hidden md:flex gap-6">
           <button className="hover:underline" onClick={() => setActiveTab("chat")}>Chat</button>
           <button className="hover:underline" onClick={() => setActiveTab("visualize")}>Visualize</button>
@@ -73,10 +82,9 @@ export default function Page() {
           <button className="hover:underline" onClick={() => setActiveTab("insights")}>Insights</button>
           <button className="hover:underline" onClick={() => setActiveTab("about")}>About</button>
         </nav>
-
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             className="bg-white/20 px-3 py-1 rounded"
           >
             {theme === "dark" ? "Light" : "Dark"}
@@ -86,49 +94,59 @@ export default function Page() {
 
       {/* TABS */}
       <main className="px-4 md:px-12 py-8">
-        {/* mobile tab picker */}
         <div className="md:hidden mb-4 flex gap-2">
-          {(["chat", "visualize", "compare", "insights", "about"] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded ${activeTab === tab ? "bg-sky-500 text-white" : "bg-white/60"}`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+          {(["chat", "visualize", "compare", "insights", "about"] as const).map(
+            (tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2 rounded ${
+                  activeTab === tab ? "bg-sky-500 text-white" : "bg-white/60"
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            )
+          )}
         </div>
 
-        {/* large layout */}
+        {/* Chat Tab */}
         {activeTab === "chat" && (
           <section className="grid md:grid-cols-2 gap-6">
-            {/* Left: Chat */}
             <div className="space-y-4">
               <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
                 <h2 className="font-semibold mb-2">Chat with ARGO AI</h2>
                 <div className="space-y-2 max-h-64 overflow-auto">
-                  {messages.map(m => (
-                    <div key={m.id} className="p-2 rounded bg-gray-100 dark:bg-slate-700">
+                  {messages.map((m) => (
+                    <div
+                      key={m.id}
+                      className="p-2 rounded bg-gray-100 dark:bg-slate-700"
+                    >
                       <strong>{m.who}</strong>: {m.text}
                     </div>
                   ))}
                 </div>
-
                 <div className="mt-3 flex gap-2">
                   <input
                     className="flex-1 p-2 rounded border dark:bg-slate-700"
                     placeholder='Try: "show salinity near equator in March 2023"'
-                    onKeyDown={e => {
+                    onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         const val = (e.target as HTMLInputElement).value.trim();
                         if (!val) return;
-                        setMessages(prev => [...prev, { id: Date.now(), who: "user", text: val }]);
+                        setMessages((prev) => [
+                          ...prev,
+                          { id: Date.now(), who: "user", text: val },
+                        ]);
                         (e.target as HTMLInputElement).value = "";
-                        // mock AI reply
                         setTimeout(() => {
-                          setMessages(prev => [
+                          setMessages((prev) => [
                             ...prev,
-                            { id: Date.now() + 1, who: "ai", text: `Mock result for: "${val}" — generated plot on right.` },
+                            {
+                              id: Date.now() + 1,
+                              who: "ai",
+                              text: `Mock result for: "${val}" — generated plot on right.`,
+                            },
                           ]);
                         }, 800);
                       }
@@ -137,7 +155,14 @@ export default function Page() {
                   <button
                     className="px-4 py-2 bg-sky-600 text-white rounded"
                     onClick={() =>
-                      setMessages(prev => [...prev, { id: Date.now(), who: "user", text: "Show mock salinity profile" }])
+                      setMessages((prev) => [
+                        ...prev,
+                        {
+                          id: Date.now(),
+                          who: "user",
+                          text: "Show mock salinity profile",
+                        },
+                      ])
                     }
                   >
                     Send
@@ -145,14 +170,9 @@ export default function Page() {
                 </div>
               </div>
             </div>
-
-            {/* Right: Plot */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
               <h3 className="font-semibold mb-2">Mock Salinity Profile</h3>
-
-              {/* Plotly */}
               <div style={{ width: "100%", height: 420 }}>
-                {/* Plot may not render on server; dynamic import ensures it runs client-side */}
                 <Plot
                   data={[
                     {
@@ -179,46 +199,107 @@ export default function Page() {
           </section>
         )}
 
+        {/* Visualize Tab */}
         {activeTab === "visualize" && (
           <section className="grid md:grid-cols-4 gap-4">
-            <aside className="col-span-1 bg-white dark:bg-slate-800 p-4 rounded shadow space-y-3">
+            <aside className="col-span-1 bg-white dark:bg-slate-800 p-4 rounded shadow space-y-4">
               <h3 className="font-semibold">Filters</h3>
-              <label className="block text-sm">Start date</label>
-              <input type="date" className="w-full p-2 rounded border dark:bg-slate-700" />
-              <label className="block text-sm">End date</label>
-              <input type="date" className="w-full p-2 rounded border dark:bg-slate-700" />
-              <label className="block text-sm">Depth (dbar)</label>
-              <input type="range" min={0} max={2000} defaultValue={500} className="w-full" />
-              <button className="mt-2 w-full py-2 bg-sky-600 text-white rounded">Apply</button>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Date Range</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    name="startDate"
+                    value={filters.startDate}
+                    onChange={handleFilterChange}
+                    className="w-full p-2 rounded border dark:bg-slate-700"
+                  />
+                  <input
+                    type="date"
+                    name="endDate"
+                    value={filters.endDate}
+                    onChange={handleFilterChange}
+                    className="w-full p-2 rounded border dark:bg-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="region" className="block text-sm font-medium mb-1">Region</label>
+                <select
+                  id="region"
+                  name="region"
+                  value={filters.region}
+                  onChange={handleFilterChange}
+                  className="w-full p-2 rounded border dark:bg-slate-700"
+                >
+                  <option>Equatorial Region</option>
+                  <option>Indian Ocean</option>
+                  <option>North Atlantic</option>
+                  <option>Southern Ocean</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="parameter" className="block text-sm font-medium mb-1">Parameter</label>
+                <select
+                  id="parameter"
+                  name="parameter"
+                  value={filters.parameter}
+                  onChange={handleFilterChange}
+                  className="w-full p-2 rounded border dark:bg-slate-700"
+                >
+                  <option>Salinity</option>
+                  <option>Temperature</option>
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="floatId" className="block text-sm font-medium mb-1">Float ID</label>
+                <input
+                  type="text"
+                  id="floatId"
+                  name="floatId"
+                  placeholder="Search..."
+                  value={filters.floatId}
+                  onChange={handleFilterChange}
+                  className="w-full p-2 rounded border dark:bg-slate-700"
+                />
+              </div>
+
+              <button
+                onClick={handleApplyFilters}
+                className="mt-2 w-full py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition-colors"
+              >
+                Apply
+              </button>
             </aside>
-
             <div className="col-span-3 bg-white dark:bg-slate-800 p-2 rounded shadow h-[520px]">
-              <h3 className="font-semibold px-3 py-2">World Map — Mock Floats</h3>
-
+              <h3 className="font-semibold px-3 py-2">
+                ARGO Floats Trajectories
+              </h3>
               <div className="h-[460px] rounded overflow-hidden">
-                <MapContainer center={[0, 20]} zoom={2} style={{ height: "100%", width: "100%" }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {mockFloats.map(f => (
-                    <Marker key={f.id} position={[f.lat, f.lon]}>
-                      <Popup>
-                        Float #{f.id} <br />
-                        Lat: {f.lat} Lon: {f.lon}
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
+                <Map center={mapCenter} zoom={mapZoom} />
               </div>
             </div>
           </section>
         )}
 
+        {/* Other Tabs */}
         {activeTab === "compare" && (
           <section className="mt-4 grid md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
               <h3 className="font-semibold mb-2">Float A Profile (mock)</h3>
               <Plot
                 data={[
-                  { x: compareA.x, y: compareA.y, type: "scatter", mode: "lines+markers", name: "Float A" },
+                  {
+                    x: compareA.x,
+                    y: compareA.y,
+                    type: "scatter",
+                    mode: "lines+markers",
+                    name: "Float A",
+                  },
                 ]}
                 layout={{ title: "Float A" }}
                 style={{ width: "100%", height: 320 }}
@@ -229,7 +310,13 @@ export default function Page() {
               <h3 className="font-semibold mb-2">Float B Profile (mock)</h3>
               <Plot
                 data={[
-                  { x: compareB.x, y: compareB.y, type: "scatter", mode: "lines+markers", name: "Float B" },
+                  {
+                    x: compareB.x,
+                    y: compareB.y,
+                    type: "scatter",
+                    mode: "lines+markers",
+                    name: "Float B",
+                  },
                 ]}
                 layout={{ title: "Float B" }}
                 style={{ width: "100%", height: 320 }}
@@ -238,28 +325,34 @@ export default function Page() {
             </div>
           </section>
         )}
-
         {activeTab === "insights" && (
           <section className="mt-4 grid md:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded shadow">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-slate-800 p-4 rounded shadow"
+              >
                 <h4 className="font-semibold">Insight card #{i}</h4>
-                <p className="text-sm mt-2">Mock insight: unusual low oxygen in Arabian Sea in March 2023.</p>
+                <p className="text-sm mt-2">
+                  Mock insight: unusual low oxygen in Arabian Sea in March 2023.
+                </p>
                 <div className="mt-3">
-                  <button className="px-3 py-1 bg-sky-600 text-white rounded">View details</button>
+                  <button className="px-3 py-1 bg-sky-600 text-white rounded">
+                    View details
+                  </button>
                 </div>
               </div>
             ))}
           </section>
         )}
-
         {activeTab === "about" && (
           <section className="mt-4">
             <div className="bg-white dark:bg-slate-800 p-6 rounded shadow">
               <h2 className="text-xl font-bold">About ARGO Explorer (Mock)</h2>
               <p className="mt-2 text-sm">
-                This is a demo frontend using mock ARGO float data, Plotly charts and Leaflet maps. Replace mocks with backend APIs
-                later to connect to Postgres / RAG pipelines.
+                This is a demo frontend using mock ARGO float data, Plotly
+                charts and Leaflet maps. Replace mocks with backend APIs later
+                to connect to Postgres / RAG pipelines.
               </p>
             </div>
           </section>
