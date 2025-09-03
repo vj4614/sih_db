@@ -1,102 +1,277 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+/**
+ * NOTE:
+ * - react-plotly.js is loaded dynamically (client-only).
+ * - We keep this page as a client component ("use client") because it uses hooks and client-only libs.
+ */
+
+// dynamic import Plotly (client-side only)
+const Plot = dynamic(() => import("react-plotly.js"), {
+  ssr: false,
+}) as typeof import("react-plotly.js").default;
+
+// Fix leaflet marker icon paths (common issue)
+delete (L.Icon.Default as any).prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png").default,
+  iconUrl: require("leaflet/dist/images/marker-icon.png").default,
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png").default,
+});
+
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+
+export default function Page() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [activeTab, setActiveTab] = useState<"chat" | "visualize" | "compare" | "insights" | "about">(
+    "chat"
+  );
+
+  // mock chat messages
+  const [messages, setMessages] = useState([
+    { id: 1, who: "system", text: "Ask about floats, e.g., show salinity near equator in March 2023" },
+  ]);
+
+  // mock floats
+  const mockFloats = [
+    { id: 1, lat: 0.5, lon: 20.5 },
+    { id: 2, lat: 5.2, lon: 40.1 },
+    { id: 3, lat: -10.3, lon: 80.4 },
+  ];
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
+
+  // sample data for plots (mock)
+  const salinityProfile = {
+    x: [34.4, 35.0, 35.6, 35.8, 36.0], // salinity PSU
+    y: [0, 50, 200, 500, 1000], // depth (m)
+  };
+
+  const compareA = { x: [0, 100, 200], y: [10, 20, 15] };
+  const compareB = { x: [0, 100, 200], y: [12, 18, 17] };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      {/* NAV */}
+      <header className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-sky-600 to-cyan-500 text-white">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-white/20 w-10 h-10 flex items-center justify-center text-lg">🌊</div>
+          <h1 className="text-xl font-semibold">ARGO Explorer</h1>
         </div>
+
+        <nav className="hidden md:flex gap-6">
+          <button className="hover:underline" onClick={() => setActiveTab("chat")}>Chat</button>
+          <button className="hover:underline" onClick={() => setActiveTab("visualize")}>Visualize</button>
+          <button className="hover:underline" onClick={() => setActiveTab("compare")}>Compare</button>
+          <button className="hover:underline" onClick={() => setActiveTab("insights")}>Insights</button>
+          <button className="hover:underline" onClick={() => setActiveTab("about")}>About</button>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
+            className="bg-white/20 px-3 py-1 rounded"
+          >
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
+        </div>
+      </header>
+
+      {/* TABS */}
+      <main className="px-4 md:px-12 py-8">
+        {/* mobile tab picker */}
+        <div className="md:hidden mb-4 flex gap-2">
+          {(["chat", "visualize", "compare", "insights", "about"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 rounded ${activeTab === tab ? "bg-sky-500 text-white" : "bg-white/60"}`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* large layout */}
+        {activeTab === "chat" && (
+          <section className="grid md:grid-cols-2 gap-6">
+            {/* Left: Chat */}
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
+                <h2 className="font-semibold mb-2">Chat with ARGO AI</h2>
+                <div className="space-y-2 max-h-64 overflow-auto">
+                  {messages.map(m => (
+                    <div key={m.id} className="p-2 rounded bg-gray-100 dark:bg-slate-700">
+                      <strong>{m.who}</strong>: {m.text}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <input
+                    className="flex-1 p-2 rounded border dark:bg-slate-700"
+                    placeholder='Try: "show salinity near equator in March 2023"'
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const val = (e.target as HTMLInputElement).value.trim();
+                        if (!val) return;
+                        setMessages(prev => [...prev, { id: Date.now(), who: "user", text: val }]);
+                        (e.target as HTMLInputElement).value = "";
+                        // mock AI reply
+                        setTimeout(() => {
+                          setMessages(prev => [
+                            ...prev,
+                            { id: Date.now() + 1, who: "ai", text: `Mock result for: "${val}" — generated plot on right.` },
+                          ]);
+                        }, 800);
+                      }
+                    }}
+                  />
+                  <button
+                    className="px-4 py-2 bg-sky-600 text-white rounded"
+                    onClick={() =>
+                      setMessages(prev => [...prev, { id: Date.now(), who: "user", text: "Show mock salinity profile" }])
+                    }
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Plot */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
+              <h3 className="font-semibold mb-2">Mock Salinity Profile</h3>
+
+              {/* Plotly */}
+              <div style={{ width: "100%", height: 420 }}>
+                {/* Plot may not render on server; dynamic import ensures it runs client-side */}
+                <Plot
+                  data={[
+                    {
+                      x: salinityProfile.x,
+                      y: salinityProfile.y,
+                      type: "scatter",
+                      mode: "lines+markers",
+                      marker: { size: 6 },
+                      name: "Salinity (PSU)",
+                    },
+                  ]}
+                  layout={{
+                    title: "Salinity vs Depth (mock)",
+                    yaxis: { autorange: "reversed", title: "Depth (m)" },
+                    xaxis: { title: "Salinity (PSU)" },
+                    margin: { t: 40, l: 50, r: 30, b: 50 },
+                    autosize: true,
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  useResizeHandler
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "visualize" && (
+          <section className="grid md:grid-cols-4 gap-4">
+            <aside className="col-span-1 bg-white dark:bg-slate-800 p-4 rounded shadow space-y-3">
+              <h3 className="font-semibold">Filters</h3>
+              <label className="block text-sm">Start date</label>
+              <input type="date" className="w-full p-2 rounded border dark:bg-slate-700" />
+              <label className="block text-sm">End date</label>
+              <input type="date" className="w-full p-2 rounded border dark:bg-slate-700" />
+              <label className="block text-sm">Depth (dbar)</label>
+              <input type="range" min={0} max={2000} defaultValue={500} className="w-full" />
+              <button className="mt-2 w-full py-2 bg-sky-600 text-white rounded">Apply</button>
+            </aside>
+
+            <div className="col-span-3 bg-white dark:bg-slate-800 p-2 rounded shadow h-[520px]">
+              <h3 className="font-semibold px-3 py-2">World Map — Mock Floats</h3>
+
+              <div className="h-[460px] rounded overflow-hidden">
+                <MapContainer center={[0, 20]} zoom={2} style={{ height: "100%", width: "100%" }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  {mockFloats.map(f => (
+                    <Marker key={f.id} position={[f.lat, f.lon]}>
+                      <Popup>
+                        Float #{f.id} <br />
+                        Lat: {f.lat} Lon: {f.lon}
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "compare" && (
+          <section className="mt-4 grid md:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
+              <h3 className="font-semibold mb-2">Float A Profile (mock)</h3>
+              <Plot
+                data={[
+                  { x: compareA.x, y: compareA.y, type: "scatter", mode: "lines+markers", name: "Float A" },
+                ]}
+                layout={{ title: "Float A" }}
+                style={{ width: "100%", height: 320 }}
+                useResizeHandler
+              />
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
+              <h3 className="font-semibold mb-2">Float B Profile (mock)</h3>
+              <Plot
+                data={[
+                  { x: compareB.x, y: compareB.y, type: "scatter", mode: "lines+markers", name: "Float B" },
+                ]}
+                layout={{ title: "Float B" }}
+                style={{ width: "100%", height: 320 }}
+                useResizeHandler
+              />
+            </div>
+          </section>
+        )}
+
+        {activeTab === "insights" && (
+          <section className="mt-4 grid md:grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded shadow">
+                <h4 className="font-semibold">Insight card #{i}</h4>
+                <p className="text-sm mt-2">Mock insight: unusual low oxygen in Arabian Sea in March 2023.</p>
+                <div className="mt-3">
+                  <button className="px-3 py-1 bg-sky-600 text-white rounded">View details</button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {activeTab === "about" && (
+          <section className="mt-4">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded shadow">
+              <h2 className="text-xl font-bold">About ARGO Explorer (Mock)</h2>
+              <p className="mt-2 text-sm">
+                This is a demo frontend using mock ARGO float data, Plotly charts and Leaflet maps. Replace mocks with backend APIs
+                later to connect to Postgres / RAG pipelines.
+              </p>
+            </div>
+          </section>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* FOOTER */}
+      <footer className="py-4 px-6 bg-slate-100 dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-400">
+        <div className="max-w-6xl mx-auto flex justify-between">
+          <span>Powered by ARGO • Mock demo</span>
+          <span>Privacy • Terms • API Docs</span>
+        </div>
       </footer>
     </div>
   );
