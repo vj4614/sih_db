@@ -10,6 +10,7 @@
   --card-foreground: #1a202c;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
+  --water-color: #2563eb;
 }
 
 .dark {
@@ -21,12 +22,14 @@
   --card-foreground: #e6edf3;
   --muted: #21262d;
   --muted-foreground: #8d96a0;
+  --water-color: #007bff;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden; /* Prevent scrollbars during animation */
 }
 
 /* Custom scrollbar for a more modern look */
@@ -43,4 +46,122 @@ body {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* --- Cinematic Wave Animation Styles --- */
+.wave-animation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 100; /* Ensure it covers the navbar */
+  animation: wave-sequence 5s ease-in-out forwards;
+}
+
+.wave {
+  position: absolute;
+  bottom: 0; /* Start at the bottom of the viewport */
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  border-radius: 45% 45% 0 0; /* Creates the curved shape */
+  transform: translateX(-50%) translateY(100%); /* Initially off-screen below */
+  background: var(--water-color);
+  opacity: 0.9;
+  animation: wave-motion-cinematic 5s ease-in-out forwards;
+}
+
+.wave-back {
+  animation-delay: 0s;
+  background: color-mix(in srgb, var(--water-color) 80%, black);
+}
+
+.wave-mid {
+  animation-delay: 0.2s;
+  background: color-mix(in srgb, var(--water-color) 90%, black);
+}
+
+.wave-front {
+  animation-delay: 0.4s;
+  background: var(--water-color);
+}
+
+@keyframes wave-motion-cinematic {
+  0% { transform: translateX(-50%) translateY(100%) rotate(0deg); }
+  20% { transform: translateX(-50%) translateY(-20%) rotate(-5deg); } /* Ascends to cover the screen */
+  50% { transform: translateX(-50%) translateY(-10%) rotate(5deg); } /* Fills the screen */
+  80% { transform: translateX(-50%) translateY(-15%) rotate(-2deg); } /* Recoils a bit */
+  100% { transform: translateX(-50%) translateY(100%) rotate(0deg); } /* Descends back to the bottom */
+}
+
+@keyframes wave-sequence {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* --- Dripping Effect Styles on Navbar --- */
+.dripping-container {
+  position: relative;
+  overflow: visible;
+}
+
+.dripping-container > * {
+  position: relative;
+  z-index: 101; /* Ensure content is above drips */
+}
+
+.dripping-container::before,
+.dripping-container::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 2px;
+    height: 0;
+    background-color: var(--water-color);
+    pointer-events: none;
+    z-index: 99; /* Below the content but visible */
+    opacity: 0;
+    border-radius: 50%;
+    animation: drip-fall 1.5s ease-in-out forwards;
+    animation-delay: 4.5s; /* Starts dripping as wave recedes */
+}
+
+.dripping-container::after {
+    left: 70%;
+    animation-delay: 4.7s;
+}
+
+/* Final prominent drop for the "whale's head" metaphor */
+.dripping-container:last-child::before {
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: last-drip-fall 1.5s ease-in-out forwards;
+    animation-delay: 5s;
+}
+
+@keyframes drip-fall {
+  0% { transform: translateY(0); height: 0; opacity: 1; }
+  20% { height: 10px; opacity: 1; }
+  100% { transform: translateY(40px); height: 10px; opacity: 0; }
+}
+
+@keyframes last-drip-fall {
+    0% { transform: translateY(0); height: 0; width: 0; opacity: 1; }
+    50% { transform: translateY(20px); height: 10px; width: 6px; opacity: 1; }
+    100% { transform: translateY(50px); height: 10px; width: 6px; opacity: 0; }
+}
+
+/* Existing animations for other components */
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
 }

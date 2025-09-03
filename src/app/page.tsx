@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, FC } from "react";
+import React, { useState, useEffect, FC, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { LatLngExpression } from "leaflet";
-import { Sun, Moon, MessageSquare, BarChart2, GitCompare, Zap, Info, Send, Search } from 'lucide-react';
+import { Sun, Moon, MessageSquare, BarChart2, GitCompare, Zap, Info, Send, Search, User, GraduationCap, Droplet, Layers, MapPin, Globe, Hash } from 'lucide-react';
 import SidePanel from "./components/SidePanel";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -14,13 +14,22 @@ const Map = dynamic(() => import("./components/Map"), {
 
 type Tab = "chat" | "visualize" | "compare" | "insights" | "about";
 type MapTransition = "fly" | "instant";
+type Mode = "researcher" | "newbie";
 
-const TABS: { id: Tab; label: string; icon: FC<any> }[] = [
+const RESEARCHER_TABS: { id: Tab; label: string; icon: FC<any> }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "visualize", label: "Visualize", icon: BarChart2 },
   { id: "compare", label: "Compare", icon: GitCompare },
   { id: "insights", label: "Insights", icon: Zap },
   { id: "about", label: "About", icon: Info },
+];
+
+const NEWBIE_TABS: { id: Tab; label: string; icon: FC<any> }[] = [
+    { id: "chat", label: "Helper", icon: MessageSquare },
+    { id: "visualize", label: "Diagram", icon: BarChart2 },
+    { id: "compare", label: "Distinguish", icon: GitCompare },
+    { id: "insights", label: "Info", icon: Zap },
+    { id: "about", label: "About", icon: Info },
 ];
 
 const mockFloats = [
@@ -52,6 +61,9 @@ const mockFloats = [
 
 export default function Page() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [mode, setMode] = useState<Mode>("researcher");
+  const [showWaveAnimation, setShowWaveAnimation] = useState(false);
+  const [showDrippingEffect, setShowDrippingEffect] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("visualize");
   const [messages, setMessages] = useState([
     { id: 1, who: "system", text: "Ask about floats, e.g., 'show salinity near equator in March 2023'" },
@@ -70,6 +82,32 @@ export default function Page() {
     parameter: "Salinity",
     floatId: "",
   });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
+
+  const handleModeToggle = () => {
+    if (mode === "researcher") {
+      setShowWaveAnimation(true);
+      setShowDrippingEffect(false); 
+      
+      setTimeout(() => {
+        setMode("newbie");
+        setActiveTab("visualize");
+        setShowWaveAnimation(false);
+        setShowDrippingEffect(true); 
+        setTimeout(() => {
+            setShowDrippingEffect(false); 
+        }, 1500); 
+      }, 5000); 
+    } else {
+      setMode("researcher");
+      setActiveTab("visualize"); 
+      setShowWaveAnimation(false);
+      setShowDrippingEffect(false);
+    }
+  };
 
   const handleFloatSelect = (float) => {
     setMapTransition('fly');
@@ -108,14 +146,38 @@ export default function Page() {
     setRegionSummary(null);
   };
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
-  return (
-    <div className="flex flex-col h-screen bg-background text-foreground font-sans">
-      <Header theme={theme} setTheme={setTheme} activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
+  const renderDashboard = () => {
+    if (mode === 'newbie') {
+      switch (activeTab) {
+        case "chat":
+            return <NewbieHelper messages={messages} setMessages={setMessages} />;
+        case "visualize":
+            return (
+                <NewbieDiagram
+                    filters={filters}
+                    handleFilterChange={handleFilterChange}
+                    handleApplyFilters={handleApplyFilters}
+                    mapCenter={mapCenter}
+                    mapZoom={mapZoom}
+                    selectedFloat={selectedFloat}
+                    regionSummary={regionSummary}
+                    onFloatSelect={handleFloatSelect}
+                    onDetailClose={handleDetailClose}
+                    theme={theme}
+                    mapTransition={mapTransition}
+                />
+            );
+        case "compare":
+            return <NewbieDistinguish theme={theme} />;
+        case "insights":
+            return <NewbieInfo />;
+        case "about":
+            return <AboutTab />;
+        default:
+            return null;
+      }
+    }
+    return (
         <div className="max-w-7xl mx-auto">
           {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} />}
           {activeTab === "visualize" && (
@@ -137,6 +199,23 @@ export default function Page() {
           {activeTab === "insights" && <InsightsTab />}
           {activeTab === "about" && <AboutTab />}
         </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-background text-foreground font-sans overflow-hidden">
+      <Header 
+        theme={theme} 
+        setTheme={setTheme} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        mode={mode} 
+        onModeToggle={handleModeToggle} 
+        showDrippingEffect={showDrippingEffect}
+      />
+      <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto relative">
+        {showWaveAnimation && <WaveAnimation />}
+        {renderDashboard()}
       </main>
     </div>
   );
@@ -144,15 +223,54 @@ export default function Page() {
 
 // --- Components ---
 
-const Header = ({ theme, setTheme, activeTab, setActiveTab }) => (
-  <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-card shadow-sm">
-    <div className="flex items-center gap-3"><div className="bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold">🌊</div><h1 className="text-xl font-bold tracking-tight">ARGO Explorer</h1></div>
-    <nav className="hidden md:flex items-center gap-2 bg-muted p-1 rounded-lg">
-      {TABS.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => setActiveTab(id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}><Icon size={16} />{label}</button>))}
-    </nav>
-    <div className="flex items-center gap-3"><button onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} className="p-2 rounded-full hover:bg-muted transition-colors">{theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}</button></div>
-  </header>
-);
+const Header = ({ theme, setTheme, activeTab, setActiveTab, mode, onModeToggle, showDrippingEffect }) => {
+  const tabs = mode === 'researcher' ? RESEARCHER_TABS : NEWBIE_TABS;
+  return (
+    <header className={`flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-card shadow-sm relative z-[100]`}>
+      <div className={`flex items-center gap-3 ${showDrippingEffect ? 'dripping-container' : ''}`}>
+          <div className="bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold">🌊</div>
+          <h1 className="text-xl font-bold tracking-tight">ARGO Explorer</h1>
+      </div>
+      <nav className="hidden md:flex items-center gap-2 bg-muted p-1 rounded-lg">
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button 
+              key={id} 
+              onClick={() => setActiveTab(id)} 
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors 
+              ${activeTab === id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}
+              ${showDrippingEffect ? 'dripping-container' : ''}
+              `}
+          >
+            <Icon size={16} />{label}
+          </button>
+        ))}
+      </nav>
+      <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-muted p-1 rounded-full">
+              <button
+                  onClick={onModeToggle}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      mode === 'researcher' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60'
+                  }`}
+              >
+                  <GraduationCap size={16} />Researcher
+              </button>
+              <button
+                  onClick={onModeToggle}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      mode === 'newbie' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60'
+                  }`}
+              >
+                  <User size={16} />Newbie
+              </button>
+          </div>
+          <button onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} className={`p-2 rounded-full hover:bg-muted transition-colors ${showDrippingEffect ? 'dripping-container' : ''}`}>
+              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+      </div>
+    </header>
+  );
+};
 
 const ChatTab = ({ messages, setMessages }) => (
   <section className="max-w-4xl mx-auto h-[calc(100vh-150px)] flex flex-col animate-fade-in">
@@ -175,13 +293,13 @@ const ChatTab = ({ messages, setMessages }) => (
                 placeholder="Ask a question..."
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                        const val = (e.target as HTMLInputElement).value.trim();
-                        if (!val) return;
-                        setMessages((prev) => [...prev, { id: Date.now(), who: 'user', text: val }]);
-                        (e.target as HTMLInputElement).value = '';
-                        setTimeout(() => {
-                          setMessages((prev) => [...prev, { id: Date.now() + 1, who: 'ai', text: `This is a mock response for: "${val}"` }]);
-                        }, 800);
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (!val) return;
+                      setMessages((prev) => [...prev, { id: Date.now(), who: 'user', text: val }]);
+                      (e.target as HTMLInputElement).value = '';
+                      setTimeout(() => {
+                        setMessages((prev) => [...prev, { id: Date.now() + 1, who: 'ai', text: `This is a mock response for: "${val}"` }]);
+                      }, 800);
                     }
                 }}
             />
@@ -217,14 +335,6 @@ const VisualizeTab = ({ filters, handleFilterChange, handleApplyFilters, mapCent
         <SidePanel float={selectedFloat} summary={regionSummary} onClose={onDetailClose} theme={theme} />
       </div>
     </section>
-);
-
-const FilterGroup = ({ label, children }) => (
-    <div>
-        <label className="block text-sm font-medium mb-2 text-muted-foreground">{label}</label>
-        {children}
-        <style jsx>{`.filter-input {width: 100%;padding: 0.75rem;border-radius: 0.5rem;border: 1px solid #d1d5db;background-color: var(--background);color: var(--foreground);}.dark .filter-input {border-color: #374151;}`}</style>
-    </div>
 );
 
 const CompareTab = ({ theme }) => {
@@ -327,4 +437,149 @@ const AboutTab = () => (
         </p>
       </div>
     </section>
+);
+
+const NewbieHelper = ({ messages, setMessages }) => {
+    useEffect(() => {
+        setMessages([
+            { id: 1, who: "ai", text: "Hello! Welcome to the Newbie Helper. I'm here to guide you through the world of ARGO floats. How can I assist you today?" },
+        ]);
+    }, [setMessages]);
+
+    return (
+        <section className="max-w-4xl mx-auto h-[calc(100vh-150px)] flex flex-col animate-fade-in">
+            <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 flex flex-col h-full">
+                <h2 className="text-xl font-bold mb-4 border-b pb-3 text-primary">Helper</h2>
+                <div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">
+                  {messages.map((m) => (
+                    <div key={m.id} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs lg:max-w-xl p-3 rounded-2xl ${
+                        m.who === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                      }`}>
+                        <p className="text-sm">{m.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-auto flex items-center gap-2 border-t pt-4">
+                    <input
+                        className="flex-1 p-3 rounded-full border bg-background dark:bg-slate-700 focus:ring-2 focus:ring-primary focus:outline-none"
+                        placeholder="Ask a question..."
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                const val = (e.target as HTMLInputElement).value.trim();
+                                if (!val) return;
+                                setMessages((prev) => [...prev, { id: Date.now(), who: 'user', text: val }]);
+                                (e.target as HTMLInputElement).value = '';
+                                setTimeout(() => {
+                                  setMessages((prev) => [...prev, { id: Date.now() + 1, who: 'ai', text: `This is a mock response for: "${val}"` }]);
+                                }, 800);
+                            }
+                        }}
+                    />
+                    <button className="p-3 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-transform transform active:scale-95">
+                        <Send size={20} />
+                    </button>
+                </div>
+            </div>
+            <style jsx>{`
+                @keyframes fade-in {
+                  from { opacity: 0; transform: translateY(10px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                  animation: fade-in 0.5s ease-out forwards;
+                }
+              `}</style>
+        </section>
+    );
+};
+
+const NewbieDiagram = ({ filters, handleFilterChange, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) => (
+    <section className="grid md:grid-cols-4 gap-6 h-[calc(100vh-120px)]">
+      <aside className="col-span-1 bg-card rounded-xl shadow-lg p-6 flex flex-col space-y-6">
+        <h3 className="text-xl font-bold border-b pb-3">Simple Filters</h3>
+        <FilterGroup label="Parameter">
+            <select name="parameter" value={filters.parameter} onChange={handleFilterChange} className="filter-input">
+                <option>Salinity</option>
+                <option>Temperature</option>
+            </select>
+        </FilterGroup>
+        <FilterGroup label="Float ID">
+            <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input type="text" name="floatId" placeholder="Search by ID..." value={filters.floatId} onChange={handleFilterChange} className="filter-input pl-10" />
+            </div>
+        </FilterGroup>
+        <button onClick={handleApplyFilters} className="mt-auto w-full py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-all transform active:scale-95 shadow-lg">Apply Filters</button>
+      </aside>
+      <div className="col-span-3 bg-card rounded-xl shadow-lg overflow-hidden relative">
+        <Map center={mapCenter} zoom={mapZoom} selectedFloatId={selectedFloat?.id} onFloatSelect={onFloatSelect} transition={mapTransition} floats={mockFloats} theme={theme}/>
+        <SidePanel float={selectedFloat} summary={regionSummary} onClose={onDetailClose} theme={theme} />
+      </div>
+    </section>
+);
+
+const NewbieDistinguish = ({ theme }) => {
+    const floatData = [
+        { id: 98765, project: "INCOIS", lastCycle: 15, position: "[-10.0, 85.0]", temp: "25°C" },
+        { id: 12345, project: "NOAA", lastCycle: 22, position: "[-15.0, 78.0]", temp: "18°C" },
+        { id: 54321, project: "CSIRO", lastCycle: 8, position: "[-13.0, 83.0]", temp: "22°C" },
+    ];
+
+    const isDark = theme === 'dark';
+
+    return (
+        <section className="bg-card p-4 sm:p-6 rounded-xl shadow-lg animate-fade-in">
+            <h3 className="text-xl font-bold mb-4">Float Comparison Table</h3>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Float ID</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Project</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Last Cycle</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Last Temperature</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-card divide-y divide-gray-200 dark:divide-gray-700">
+                        {floatData.map((float) => (
+                            <tr key={float.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{float.id}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">{float.project}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">{float.lastCycle}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">{float.temp}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <style jsx>{`
+                @keyframes fade-in {
+                  from { opacity: 0; transform: translateY(10px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                  animation: fade-in 0.5s ease-out forwards;
+                }
+            `}</style>
+        </section>
+    );
+};
+
+const NewbieInfo = () => <InsightsTab />;
+
+const FilterGroup = ({ label, children }) => (
+  <div className="flex flex-col gap-2">
+    <label className="text-sm font-medium text-muted-foreground">{label}</label>
+    {children}
+  </div>
+);
+
+const WaveAnimation = () => (
+  <div className="wave-animation-overlay">
+    <div className="wave wave-back"></div>
+    <div className="wave wave-mid"></div>
+    <div className="wave wave-front"></div>
+  </div>
 );
