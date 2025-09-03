@@ -1,371 +1,330 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, FC } from "react";
 import dynamic from "next/dynamic";
 import { LatLngExpression } from "leaflet";
+import { Sun, Moon, MessageSquare, BarChart2, GitCompare, Zap, Info, Send, Search } from 'lucide-react';
+import SidePanel from "./components/SidePanel";
 
-// Dynamically import Plotly for charting
-const Plot = dynamic(() => import("react-plotly.js"), {
-  ssr: false,
-});
-
-// Dynamically import the Map component to prevent SSR issues
+const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 const Map = dynamic(() => import("./components/Map"), {
   ssr: false,
-  loading: () => <p className="text-center">Loading map...</p>,
+  loading: () => <div className="flex items-center justify-center h-full"><p>Loading map...</p></div>,
 });
 
+type Tab = "chat" | "visualize" | "compare" | "insights" | "about";
+type MapTransition = "fly" | "instant";
+
+const TABS: { id: Tab; label: string; icon: FC<any> }[] = [
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "visualize", label: "Visualize", icon: BarChart2 },
+  { id: "compare", label: "Compare", icon: GitCompare },
+  { id: "insights", label: "Insights", icon: Zap },
+  { id: "about", label: "About", icon: Info },
+];
+
+const mockFloats = [
+    { 
+        id: 1, platform_number: 98765, project_name: "INCOIS", last_cycle: 15, 
+        position: [-10.0, 85.0] as LatLngExpression, 
+        trajectory: [
+            [-14.0, 75.0], [-12.5, 76.5], [-11.0, 75.5], [-10.5, 78.0], 
+            [-9.0, 79.0], [-11.0, 82.0], [-12.0, 84.0], [-10.0, 85.0]
+        ] as LatLngExpression[] 
+    },
+    { 
+        id: 2, platform_number: 12345, project_name: "NOAA", last_cycle: 22, 
+        position: [-15.0, 78.0] as LatLngExpression, 
+        trajectory: [
+            [-8.0, 77.0], [-10.0, 79.0], [-12.0, 81.0], [-14.0, 80.0],
+            [-16.0, 79.0], [-15.0, 78.0]
+        ] as LatLngExpression[] 
+    },
+    { 
+        id: 3, platform_number: 54321, project_name: "CSIRO", last_cycle: 8, 
+        position: [-13.0, 83.0] as LatLngExpression,
+        trajectory: [
+            [-18.0, 80.0], [-16.0, 81.0], [-14.0, 79.0], [-12.0, 81.5],
+            [-11.5, 83.5], [-13.0, 83.0]
+        ] as LatLngExpression[]
+    },
+];
+
 export default function Page() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [activeTab, setActiveTab] = useState<"chat" | "visualize" | "compare" | "insights" | "about">(
-    "chat"
-  );
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [activeTab, setActiveTab] = useState<Tab>("visualize");
   const [messages, setMessages] = useState([
-    { id: 1, who: "system", text: "Ask about floats, e.g., show salinity near equator in March 2023" },
+    { id: 1, who: "system", text: "Ask about floats, e.g., 'show salinity near equator in March 2023'" },
   ]);
 
-  // State for map view control
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
-  const [mapZoom, setMapZoom] = useState(4);
+  const [mapZoom, setMapZoom] = useState(3);
+  const [selectedFloat, setSelectedFloat] = useState(null);
+  const [regionSummary, setRegionSummary] = useState(null);
+  const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
 
-  // State for new filters, matching the image provided
   const [filters, setFilters] = useState({
     startDate: "2023-03-01",
     endDate: "2023-03-31",
-    region: "Equatorial Region",
+    region: "Indian Ocean",
     parameter: "Salinity",
     floatId: "",
   });
 
-  // Handle filter input changes
-  const handleFilterChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleFloatSelect = (float) => {
+    setMapTransition('fly');
+    setRegionSummary(null);
+    setSelectedFloat(float);
+    setMapCenter(float.position);
+    setMapZoom(7);
+  };
+  
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
-  
-  // Apply button functionality
+
   const handleApplyFilters = () => {
-    console.log("Applying Filters:", filters);
+    setMapTransition('instant');
+    setSelectedFloat(null);
     
-    // Zoom to mock float location as an example action
-    const mockFloatLocation: LatLngExpression = [-15.0, 75.0];
-    setMapCenter(mockFloatLocation);
-    setMapZoom(7);
+    setRegionSummary({
+        region: filters.region,
+        floats: mockFloats,
+    });
+    
+    const mockRegionCenters = {
+        "Indian Ocean": [0, 80],
+        "Equatorial Region": [0, -120],
+        "North Atlantic": [40, -40],
+        "Southern Ocean": [-60, 0]
+    };
+    setMapCenter(mockRegionCenters[filters.region] || [0, 80]);
+    setMapZoom(3);
+  };
+
+  const handleDetailClose = () => {
+    setSelectedFloat(null);
+    setRegionSummary(null);
   };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  // Sample data for plots
-  const salinityProfile = {
-    x: [34.4, 35.0, 35.6, 35.8, 36.0],
-    y: [0, 50, 200, 500, 1000],
-  };
-  const compareA = { x: [0, 100, 200], y: [10, 20, 15] };
-  const compareB = { x: [0, 100, 200], y: [12, 18, 17] };
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-      {/* NAV */}
-      <header className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-sky-600 to-cyan-500 text-white">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-white/20 w-10 h-10 flex items-center justify-center text-lg">🌊</div>
-          <h1 className="text-xl font-semibold">ARGO Explorer</h1>
-        </div>
-        <nav className="hidden md:flex gap-6">
-          <button className="hover:underline" onClick={() => setActiveTab("chat")}>Chat</button>
-          <button className="hover:underline" onClick={() => setActiveTab("visualize")}>Visualize</button>
-          <button className="hover:underline" onClick={() => setActiveTab("compare")}>Compare</button>
-          <button className="hover:underline" onClick={() => setActiveTab("insights")}>Insights</button>
-          <button className="hover:underline" onClick={() => setActiveTab("about")}>About</button>
-        </nav>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            className="bg-white/20 px-3 py-1 rounded"
-          >
-            {theme === "dark" ? "Light" : "Dark"}
-          </button>
-        </div>
-      </header>
-
-      {/* TABS */}
-      <main className="px-4 md:px-12 py-8">
-        <div className="md:hidden mb-4 flex gap-2">
-          {(["chat", "visualize", "compare", "insights", "about"] as const).map(
-            (tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2 rounded ${
-                  activeTab === tab ? "bg-sky-500 text-white" : "bg-white/60"
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            )
+    <div className="flex flex-col h-screen bg-background text-foreground font-sans">
+      <Header theme={theme} setTheme={setTheme} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} />}
+          {activeTab === "visualize" && (
+            <VisualizeTab
+              filters={filters}
+              handleFilterChange={handleFilterChange}
+              handleApplyFilters={handleApplyFilters}
+              mapCenter={mapCenter}
+              mapZoom={mapZoom}
+              selectedFloat={selectedFloat}
+              regionSummary={regionSummary}
+              onFloatSelect={handleFloatSelect}
+              onDetailClose={handleDetailClose}
+              theme={theme}
+              mapTransition={mapTransition}
+            />
           )}
+          {activeTab === "compare" && <CompareTab theme={theme} />}
+          {activeTab === "insights" && <InsightsTab />}
+          {activeTab === "about" && <AboutTab />}
         </div>
-
-        {/* Chat Tab */}
-        {activeTab === "chat" && (
-          <section className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
-                <h2 className="font-semibold mb-2">Chat with ARGO AI</h2>
-                <div className="space-y-2 max-h-64 overflow-auto">
-                  {messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className="p-2 rounded bg-gray-100 dark:bg-slate-700"
-                    >
-                      <strong>{m.who}</strong>: {m.text}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    className="flex-1 p-2 rounded border dark:bg-slate-700"
-                    placeholder='Try: "show salinity near equator in March 2023"'
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value.trim();
-                        if (!val) return;
-                        setMessages((prev) => [
-                          ...prev,
-                          { id: Date.now(), who: "user", text: val },
-                        ]);
-                        (e.target as HTMLInputElement).value = "";
-                        setTimeout(() => {
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: Date.now() + 1,
-                              who: "ai",
-                              text: `Mock result for: "${val}" — generated plot on right.`,
-                            },
-                          ]);
-                        }, 800);
-                      }
-                    }}
-                  />
-                  <button
-                    className="px-4 py-2 bg-sky-600 text-white rounded"
-                    onClick={() =>
-                      setMessages((prev) => [
-                        ...prev,
-                        {
-                          id: Date.now(),
-                          who: "user",
-                          text: "Show mock salinity profile",
-                        },
-                      ])
-                    }
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
-              <h3 className="font-semibold mb-2">Mock Salinity Profile</h3>
-              <div style={{ width: "100%", height: 420 }}>
-                <Plot
-                  data={[
-                    {
-                      x: salinityProfile.x,
-                      y: salinityProfile.y,
-                      type: "scatter",
-                      mode: "lines+markers",
-                      marker: { size: 6 },
-                      name: "Salinity (PSU)",
-                    },
-                  ]}
-                  layout={{
-                    title: "Salinity vs Depth (mock)",
-                    yaxis: { autorange: "reversed", title: "Depth (m)" },
-                    xaxis: { title: "Salinity (PSU)" },
-                    margin: { t: 40, l: 50, r: 30, b: 50 },
-                    autosize: true,
-                  }}
-                  style={{ width: "100%", height: "100%" }}
-                  useResizeHandler
-                />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Visualize Tab */}
-        {activeTab === "visualize" && (
-          <section className="grid md:grid-cols-4 gap-4">
-            <aside className="col-span-1 bg-white dark:bg-slate-800 p-4 rounded shadow space-y-4">
-              <h3 className="font-semibold">Filters</h3>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Date Range</label>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={filters.startDate}
-                    onChange={handleFilterChange}
-                    className="w-full p-2 rounded border dark:bg-slate-700"
-                  />
-                  <input
-                    type="date"
-                    name="endDate"
-                    value={filters.endDate}
-                    onChange={handleFilterChange}
-                    className="w-full p-2 rounded border dark:bg-slate-700"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="region" className="block text-sm font-medium mb-1">Region</label>
-                <select
-                  id="region"
-                  name="region"
-                  value={filters.region}
-                  onChange={handleFilterChange}
-                  className="w-full p-2 rounded border dark:bg-slate-700"
-                >
-                  <option>Equatorial Region</option>
-                  <option>Indian Ocean</option>
-                  <option>North Atlantic</option>
-                  <option>Southern Ocean</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="parameter" className="block text-sm font-medium mb-1">Parameter</label>
-                <select
-                  id="parameter"
-                  name="parameter"
-                  value={filters.parameter}
-                  onChange={handleFilterChange}
-                  className="w-full p-2 rounded border dark:bg-slate-700"
-                >
-                  <option>Salinity</option>
-                  <option>Temperature</option>
-                </select>
-              </div>
-              
-              <div>
-                <label htmlFor="floatId" className="block text-sm font-medium mb-1">Float ID</label>
-                <input
-                  type="text"
-                  id="floatId"
-                  name="floatId"
-                  placeholder="Search..."
-                  value={filters.floatId}
-                  onChange={handleFilterChange}
-                  className="w-full p-2 rounded border dark:bg-slate-700"
-                />
-              </div>
-
-              <button
-                onClick={handleApplyFilters}
-                className="mt-2 w-full py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition-colors"
-              >
-                Apply
-              </button>
-            </aside>
-            <div className="col-span-3 bg-white dark:bg-slate-800 p-2 rounded shadow h-[520px]">
-              <h3 className="font-semibold px-3 py-2">
-                ARGO Floats Trajectories
-              </h3>
-              <div className="h-[460px] rounded overflow-hidden">
-                <Map center={mapCenter} zoom={mapZoom} />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Other Tabs */}
-        {activeTab === "compare" && (
-          <section className="mt-4 grid md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
-              <h3 className="font-semibold mb-2">Float A Profile (mock)</h3>
-              <Plot
-                data={[
-                  {
-                    x: compareA.x,
-                    y: compareA.y,
-                    type: "scatter",
-                    mode: "lines+markers",
-                    name: "Float A",
-                  },
-                ]}
-                layout={{ title: "Float A" }}
-                style={{ width: "100%", height: 320 }}
-                useResizeHandler
-              />
-            </div>
-            <div className="bg-white dark:bg-slate-800 p-4 rounded shadow">
-              <h3 className="font-semibold mb-2">Float B Profile (mock)</h3>
-              <Plot
-                data={[
-                  {
-                    x: compareB.x,
-                    y: compareB.y,
-                    type: "scatter",
-                    mode: "lines+markers",
-                    name: "Float B",
-                  },
-                ]}
-                layout={{ title: "Float B" }}
-                style={{ width: "100%", height: 320 }}
-                useResizeHandler
-              />
-            </div>
-          </section>
-        )}
-        {activeTab === "insights" && (
-          <section className="mt-4 grid md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-slate-800 p-4 rounded shadow"
-              >
-                <h4 className="font-semibold">Insight card #{i}</h4>
-                <p className="text-sm mt-2">
-                  Mock insight: unusual low oxygen in Arabian Sea in March 2023.
-                </p>
-                <div className="mt-3">
-                  <button className="px-3 py-1 bg-sky-600 text-white rounded">
-                    View details
-                  </button>
-                </div>
-              </div>
-            ))}
-          </section>
-        )}
-        {activeTab === "about" && (
-          <section className="mt-4">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded shadow">
-              <h2 className="text-xl font-bold">About ARGO Explorer (Mock)</h2>
-              <p className="mt-2 text-sm">
-                This is a demo frontend using mock ARGO float data, Plotly
-                charts and Leaflet maps. Replace mocks with backend APIs later
-                to connect to Postgres / RAG pipelines.
-              </p>
-            </div>
-          </section>
-        )}
       </main>
-
-      {/* FOOTER */}
-      <footer className="py-4 px-6 bg-slate-100 dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-400">
-        <div className="max-w-6xl mx-auto flex justify-between">
-          <span>Powered by ARGO • Mock demo</span>
-          <span>Privacy • Terms • API Docs</span>
-        </div>
-      </footer>
     </div>
   );
 }
+
+// --- Components ---
+
+const Header = ({ theme, setTheme, activeTab, setActiveTab }) => (
+  <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-card shadow-sm">
+    <div className="flex items-center gap-3"><div className="bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold">🌊</div><h1 className="text-xl font-bold tracking-tight">ARGO Explorer</h1></div>
+    <nav className="hidden md:flex items-center gap-2 bg-muted p-1 rounded-lg">
+      {TABS.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => setActiveTab(id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}><Icon size={16} />{label}</button>))}
+    </nav>
+    <div className="flex items-center gap-3"><button onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} className="p-2 rounded-full hover:bg-muted transition-colors">{theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}</button></div>
+  </header>
+);
+
+const ChatTab = ({ messages, setMessages }) => (
+  <section className="max-w-4xl mx-auto h-[calc(100vh-150px)] flex flex-col animate-fade-in">
+    <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 flex flex-col h-full">
+        <h2 className="text-xl font-bold mb-4 border-b pb-3 text-primary">Chat with ARGO AI</h2>
+        <div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">
+          {messages.map((m) => (
+            <div key={m.id} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-xs lg:max-w-xl p-3 rounded-2xl ${
+                m.who === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+              }`}>
+                <p className="text-sm">{m.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-auto flex items-center gap-2 border-t pt-4">
+            <input
+                className="flex-1 p-3 rounded-full border bg-background dark:bg-slate-700 focus:ring-2 focus:ring-primary focus:outline-none"
+                placeholder="Ask a question..."
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        const val = (e.target as HTMLInputElement).value.trim();
+                        if (!val) return;
+                        setMessages((prev) => [...prev, { id: Date.now(), who: 'user', text: val }]);
+                        (e.target as HTMLInputElement).value = '';
+                        setTimeout(() => {
+                          setMessages((prev) => [...prev, { id: Date.now() + 1, who: 'ai', text: `This is a mock response for: "${val}"` }]);
+                        }, 800);
+                    }
+                }}
+            />
+            <button className="p-3 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-transform transform active:scale-95">
+                <Send size={20} />
+            </button>
+        </div>
+    </div>
+    <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+      `}</style>
+  </section>
+);
+
+const VisualizeTab = ({ filters, handleFilterChange, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) => (
+    <section className="grid md:grid-cols-4 gap-6 h-[calc(100vh-120px)]">
+      <aside className="col-span-1 bg-card rounded-xl shadow-lg p-6 flex flex-col space-y-6">
+        <h3 className="text-xl font-bold border-b pb-3">Filters</h3>
+        <FilterGroup label="Date Range"><div className="flex gap-2"><input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="filter-input" /><input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="filter-input" /></div></FilterGroup>
+        <FilterGroup label="Region"><select name="region" value={filters.region} onChange={handleFilterChange} className="filter-input"><option>Indian Ocean</option><option>Equatorial Region</option><option>North Atlantic</option><option>Southern Ocean</option></select></FilterGroup>
+        <FilterGroup label="Parameter"><select name="parameter" value={filters.parameter} onChange={handleFilterChange} className="filter-input"><option>Salinity</option><option>Temperature</option></select></FilterGroup>
+        <FilterGroup label="Float ID"><div className="relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input type="text" name="floatId" placeholder="Search by ID..." value={filters.floatId} onChange={handleFilterChange} className="filter-input pl-10" /></div></FilterGroup>
+        <button onClick={handleApplyFilters} className="mt-auto w-full py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-all transform active:scale-95 shadow-lg">Apply Filters</button>
+      </aside>
+      <div className="col-span-3 bg-card rounded-xl shadow-lg overflow-hidden relative">
+        <Map center={mapCenter} zoom={mapZoom} selectedFloatId={selectedFloat?.id} onFloatSelect={onFloatSelect} transition={mapTransition} floats={mockFloats} theme={theme}/>
+        <SidePanel float={selectedFloat} summary={regionSummary} onClose={onDetailClose} theme={theme} />
+      </div>
+    </section>
+);
+
+const FilterGroup = ({ label, children }) => (
+    <div>
+        <label className="block text-sm font-medium mb-2 text-muted-foreground">{label}</label>
+        {children}
+        <style jsx>{`.filter-input {width: 100%;padding: 0.75rem;border-radius: 0.5rem;border: 1px solid #d1d5db;background-color: var(--background);color: var(--foreground);}.dark .filter-input {border-color: #374151;}`}</style>
+    </div>
+);
+
+const CompareTab = ({ theme }) => {
+  const commonDepth = [0, 100, 200, 400, 600, 800, 1000];
+  
+  const floatA_data = {
+    y: commonDepth,
+    x: [25, 22, 18, 12, 8, 6, 5],
+    name: 'Float #98765 (Warm Core)',
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#3b82f6', width: 3 },
+    marker: { symbol: 'circle', size: 8 }
+  };
+
+  const floatB_data = {
+    y: commonDepth,
+    x: [18, 17, 15, 14, 11, 7, 4],
+    name: 'Float #12345 (Cold Intrusion)',
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ef4444', width: 3, dash: 'dash' },
+    marker: { symbol: 'square', size: 8 }
+  };
+
+  const floatC_data = {
+    y: commonDepth,
+    x: [22, 19, 17, 10, 9, 8, 6],
+    name: 'Float #54321 (Standard Profile)',
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#10b981', width: 3 },
+    marker: { symbol: 'diamond', size: 8 }
+  };
+
+  const layout = {
+    title: 'Comparative Profile Analysis: Temperature vs. Depth',
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    font: { color: theme === 'dark' ? '#e6edf3' : '#1a202c', family: 'sans-serif' },
+    xaxis: { title: 'Temperature (°C)', gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb', zeroline: false },
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb', zeroline: false },
+    legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center' },
+    hovermode: 'x unified'
+  };
+
+  return (
+    <section className="bg-card p-4 sm:p-6 rounded-xl shadow-lg animate-fade-in">
+      <h3 className="text-xl font-bold mb-4">Float Profile Comparison</h3>
+      <div className="w-full h-[65vh]">
+        <Plot
+          data={[floatA_data, floatB_data, floatC_data]}
+          layout={layout}
+          style={{ width: "100%", height: "100%" }}
+          useResizeHandler
+        />
+      </div>
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+      `}</style>
+    </section>
+  );
+};
+
+const InsightsTab = () => (
+  <section className="grid md:grid-cols-3 gap-6">
+    {[
+        { title: 'Unusual Salinity Drop', text: 'Detected a significant drop in salinity in the Bay of Bengal, potentially linked to increased freshwater influx.' },
+        { title: 'Oxygen Minimum Zone', text: 'Analysis shows an expansion of the Oxygen Minimum Zone in the Arabian Sea over the last quarter.' },
+        { title: 'Heatwave Anomaly', text: 'An underwater heatwave anomaly was observed in the Southern Indian Ocean, with temperatures 2°C above average.' }
+    ].map((insight, i) => (
+      <div key={i} className="bg-card p-6 rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all transform">
+        <h4 className="font-bold text-lg">{insight.title}</h4>
+        <p className="text-sm mt-2 text-muted-foreground">{insight.text}</p>
+        <div className="mt-4">
+          <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors">
+            View Details
+          </button>
+        </div>
+      </div>
+    ))}
+  </section>
+);
+
+const AboutTab = () => (
+    <section className="mt-4">
+      <div className="bg-card p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
+        <h2 className="text-3xl font-bold text-primary">About ARGO Explorer</h2>
+        <p className="mt-4 text-muted-foreground">
+          This is a demonstration of a modern, AI-powered interface for exploring ARGO float data. The current frontend is a showcase of what's possible with interactive maps and charts, built with Next.js, Plotly, and Leaflet.
+        </p>
+        <p className="mt-2 text-muted-foreground">
+          The next phase of development will involve connecting this interface to a robust backend, replacing the mock data with live queries to a Postgres database and leveraging a Retrieval-Augmented Generation (RAG) pipeline for the conversational AI.
+        </p>
+      </div>
+    </section>
+);

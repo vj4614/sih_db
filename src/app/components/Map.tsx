@@ -22,103 +22,76 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
 });
 
-// Mock data for a single float in the Indian Ocean
-const mockFloats = [
-  {
-    profile_id: 12345,
-    platform_number: 98765,
-    latitude: -15.0,
-    longitude: 75.0,
-    project_name: "INCOIS",
-    cycle_number: 15,
-    juld: new Date().toLocaleDateString(),
-  },
-];
+const floatIcon = new L.Icon({
+    iconUrl: '/float-icon.svg',
+    iconSize: [25, 25],
+    iconAnchor: [12, 25],
+    popupAnchor: [0, -25]
+});
 
-// Component to draw graticule (latitude and longitude lines)
-const Graticule = () => {
-  const lines = [];
-  const lineStyle = { color: "rgba(0, 0, 0, 0.2)", weight: 1 };
+const selectedFloatIcon = new L.Icon({
+    iconUrl: '/float-icon-selected.svg',
+    iconSize: [35, 35],
+    iconAnchor: [17, 35],
+    popupAnchor: [0, -35]
+});
 
-  // Draw longitude lines
-  for (let lon = -180; lon <= 180; lon += 30) {
-    lines.push(
-      <Polyline
-        key={`lon-${lon}`}
-        positions={[
-          [90, lon],
-          [-90, lon],
-        ]}
-        {...lineStyle}
-      />
-    );
-  }
-  // Draw latitude lines
-  for (let lat = -90; lat <= 90; lat += 30) {
-    lines.push(
-      <Polyline
-        key={`lat-${lat}`}
-        positions={[
-          [lat, -180],
-          [lat, 180],
-        ]}
-        {...lineStyle}
-      />
-    );
-  }
-  return <>{lines}</>;
-};
-
-// Component to programmatically change the map's view with a smooth animation
-const ChangeView = ({
-  center,
-  zoom,
-}: {
-  center: LatLngExpression;
-  zoom: number;
-}) => {
+const ChangeView = ({ center, zoom, transition }: { center: LatLngExpression; zoom: number; transition: 'fly' | 'instant' }) => {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, zoom, {
-      duration: 2, // Animation duration in seconds
-    });
-  }, [center, zoom, map]);
+    if (transition === 'instant') {
+      map.setView(center, zoom);
+    } else {
+      map.flyTo(center, zoom, { duration: 2 });
+    }
+  }, [center, zoom, transition, map]);
   return null;
 };
 
-// Define the props for the Map component
 interface MapProps {
   center: LatLngExpression;
   zoom: number;
+  selectedFloatId: number | null;
+  onFloatSelect: (float: any) => void;
+  transition: 'fly' | 'instant';
+  floats: any[];
+  theme: 'light' | 'dark';
 }
 
-export default function Map({ center, zoom }: MapProps) {
-  if (typeof window === "undefined") {
-    return null;
-  }
+export default function Map({ center, zoom, selectedFloatId, onFloatSelect, transition, floats, theme }: MapProps) {
+  if (typeof window === "undefined") return null;
+
+  const lightTileUrl = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  const darkTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
   return (
-    <MapContainer
-      center={center}
-      zoom={zoom}
-      style={{ height: "100%", width: "100%" }}
-    >
-      <ChangeView center={center} zoom={zoom} />
-      <Graticule />
+    <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
+      <ChangeView center={center} zoom={zoom} transition={transition} />
+      
+      {/* The key prop is crucial here. It forces React to re-render the TileLayer when the theme changes. */}
       <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        key={theme} 
+        url={theme === 'dark' ? darkTileUrl : lightTileUrl}
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
       />
-      {mockFloats.map((f) => (
-        <Marker key={f.profile_id} position={[f.latitude, f.longitude]}>
-          <Popup>
-            <b>Platform:</b> {f.platform_number} <br />
-            <b>Project:</b> {f.project_name} <br />
-            <b>Cycle:</b> {f.cycle_number} <br />
-            <b>Date:</b> {f.juld} <br />
-            <b>Location:</b> ({f.latitude.toFixed(2)}, {f.longitude.toFixed(2)})
-          </Popup>
-        </Marker>
+
+      {floats.map((f) => (
+          <React.Fragment key={f.id}>
+            <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            <Marker
+              icon={selectedFloatId === f.id ? selectedFloatIcon : floatIcon}
+              position={f.position}
+              eventHandlers={{ click: () => onFloatSelect(f) }}
+            >
+              <Popup>
+                <div className="text-sm">
+                    <p className="font-bold text-base">Float #{f.platform_number}</p>
+                    <p><strong>Project:</strong> {f.project_name}</p>
+                    <p>Click marker to see details.</p>
+                </div>
+              </Popup>
+            </Marker>
+        </React.Fragment>
       ))}
     </MapContainer>
   );
