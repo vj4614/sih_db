@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, FC, ReactNode } from "react";
+import React, { useState, useEffect, FC, ReactNode, useRef } from "react";
 import dynamic from "next/dynamic";
 import { LatLngExpression } from "leaflet";
-import { Sun, Moon, MessageSquare, BarChart2, GitCompare, Zap, Info, Send, Search, User, GraduationCap, Droplet, Layers, MapPin, Globe, Hash } from 'lucide-react';
+import { Sun, Moon, MessageSquare, BarChart2, GitCompare, Zap, Info, Send, Search, User, GraduationCap, Droplet, Layers, MapPin, Globe, Hash, X } from 'lucide-react';
 import SidePanel from "./components/SidePanel";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -123,22 +123,32 @@ export default function Page() {
   };
 
   const handleApplyFilters = () => {
-    setMapTransition('instant');
-    setSelectedFloat(null);
-    
-    setRegionSummary({
-        region: filters.region,
-        floats: mockFloats,
-    });
-    
-    const mockRegionCenters = {
-        "Indian Ocean": [0, 80],
-        "Equatorial Region": [0, -120],
-        "North Atlantic": [40, -40],
-        "Southern Ocean": [-60, 0]
-    };
-    setMapCenter(mockRegionCenters[filters.region] || [0, 80]);
-    setMapZoom(3);
+    const targetFloat = mockFloats.find(f => f.platform_number.toString() === filters.floatId);
+
+    if (targetFloat) {
+      setMapTransition('fly');
+      setSelectedFloat(targetFloat);
+      setMapCenter(targetFloat.position);
+      setMapZoom(8);
+      setRegionSummary(null);
+    } else {
+      setMapTransition('instant');
+      setSelectedFloat(null);
+      
+      setRegionSummary({
+          region: filters.region,
+          floats: mockFloats,
+      });
+      
+      const mockRegionCenters = {
+          "Indian Ocean": [0, 80],
+          "Equatorial Region": [0, -120],
+          "North Atlantic": [40, -40],
+          "Southern Ocean": [-60, 0]
+      };
+      setMapCenter(mockRegionCenters[filters.region] || [0, 80]);
+      setMapZoom(3);
+    }
   };
 
   const handleDetailClose = () => {
@@ -170,7 +180,7 @@ export default function Page() {
         case "compare":
             return <NewbieDistinguish theme={theme} />;
         case "insights":
-            return <NewbieInfo />;
+            return <InsightsTab />;
         case "about":
             return <AboutTab />;
         default:
@@ -213,7 +223,7 @@ export default function Page() {
         onModeToggle={handleModeToggle} 
         showDrippingEffect={showDrippingEffect}
       />
-      <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto relative">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 relative">
         {showWaveAnimation && <WaveAnimation />}
         {renderDashboard()}
       </main>
@@ -272,12 +282,65 @@ const Header = ({ theme, setTheme, activeTab, setActiveTab, mode, onModeToggle, 
   );
 };
 
-const ChatTab = ({ messages, setMessages }) => (
-  <section className="max-w-4xl mx-auto h-[calc(100vh-150px)] flex flex-col animate-fade-in">
-    <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 flex flex-col h-full">
-        <h2 className="text-xl font-bold mb-4 border-b pb-3 text-primary">Chat with ARGO AI</h2>
+const ChatTab = ({ messages, setMessages }) => {
+  const [typedMessage, setTypedMessage] = useState("");
+  const [erasing, setErasing] = useState(false);
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  const poeticLines = [
+    "I am your Sailor to help you sail in the ocean.",
+    "Let me navigate the complex data for you."
+  ];
+
+  const eraseSpeed = 30; // ms per character
+  const typeSpeed = 50;  // ms per character
+  const pauseTime = 1500; // ms pause between phases
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (!erasing) {
+      // Typing phase
+      if (typedMessage.length < poeticLines[messageIndex].length) {
+        timer = setTimeout(() => {
+          setTypedMessage(poeticLines[messageIndex].slice(0, typedMessage.length + 1));
+        }, typeSpeed);
+      } else {
+        // Pause before erasing
+        timer = setTimeout(() => {
+          setErasing(true);
+        }, pauseTime);
+      }
+    } else {
+      // Erasing phase
+      if (typedMessage.length > 0) {
+        timer = setTimeout(() => {
+          setTypedMessage(typedMessage.slice(0, typedMessage.length - 1));
+        }, eraseSpeed);
+      } else {
+        // Move to the next message and loop
+        setErasing(false);
+        setMessageIndex((prevIndex) => (prevIndex + 1) % poeticLines.length);
+      }
+    }
+    
+    return () => clearTimeout(timer);
+  }, [typedMessage, erasing, messageIndex]);
+
+  return (
+    <section className="max-w-4xl mx-auto h-[calc(100vh-150px)] flex flex-col animate-fade-in">
+      <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 flex flex-col h-full border border-gray-200 dark:border-gray-800">
+        <h2 className="text-xl font-bold mb-4 pb-3 text-primary border-b border-gray-200 dark:border-gray-800">Chat with ARGO AI</h2>
         <div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">
-          {messages.map((m) => (
+          <div className="flex justify-start">
+            <div className="max-w-xs lg:max-w-xl p-4 rounded-b-xl rounded-tr-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-primary-foreground shadow-md">
+              <p className="text-sm font-light leading-relaxed">
+                {typedMessage}
+                <span className="blinking-cursor">|</span>
+              </p>
+            </div>
+          </div>
+          {messages.slice(1).map((m) => (
             <div key={m.id} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-xs lg:max-w-xl p-3 rounded-2xl ${
                 m.who === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
@@ -287,9 +350,9 @@ const ChatTab = ({ messages, setMessages }) => (
             </div>
           ))}
         </div>
-        <div className="mt-auto flex items-center gap-2 border-t pt-4">
+        <div className="mt-auto flex items-center gap-2 border-t pt-4 border-gray-200 dark:border-gray-800">
             <input
-                className="flex-1 p-3 rounded-full border bg-background dark:bg-slate-700 focus:ring-2 focus:ring-primary focus:outline-none"
+                className="flex-1 p-3 rounded-full border bg-background dark:bg-slate-700 focus:ring-2 focus:ring-primary focus:outline-none placeholder:italic placeholder:text-muted-foreground"
                 placeholder="Ask a question..."
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -303,12 +366,12 @@ const ChatTab = ({ messages, setMessages }) => (
                     }
                 }}
             />
-            <button className="p-3 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-transform transform active:scale-95">
+            <button className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-primary-foreground rounded-full shadow-lg hover:scale-105 transition-all transform active:scale-95">
                 <Send size={20} />
             </button>
         </div>
-    </div>
-    <style jsx>{`
+      </div>
+      <style jsx>{`
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
@@ -316,8 +379,23 @@ const ChatTab = ({ messages, setMessages }) => (
         .animate-fade-in {
           animation: fade-in 0.5s ease-out forwards;
         }
+        @keyframes blink {
+          50% { opacity: 0; }
+        }
+        .blinking-cursor {
+          animation: blink 1s step-end infinite;
+          font-weight: bold;
+        }
       `}</style>
-  </section>
+    </section>
+  );
+};
+
+const FilterGroup = ({ label, children }) => (
+  <div className="flex flex-col gap-2">
+    <label className="text-sm font-medium text-muted-foreground">{label}</label>
+    {children}
+  </div>
 );
 
 const VisualizeTab = ({ filters, handleFilterChange, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) => (
@@ -362,7 +440,7 @@ const CompareTab = ({ theme }) => {
 
   const floatC_data = {
     y: commonDepth,
-    x: [22, 19, 17, 10, 9, 8, 6],
+    x: [20, 19, 16, 11, 9, 8, 6], // Adjusted temperature profile for better separation
     name: 'Float #54321 (Standard Profile)',
     type: 'scatter',
     mode: 'lines+markers',
@@ -375,23 +453,82 @@ const CompareTab = ({ theme }) => {
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
     font: { color: theme === 'dark' ? '#e6edf3' : '#1a202c', family: 'sans-serif' },
-    xaxis: { title: 'Temperature (°C)', gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb', zeroline: false },
-    yaxis: { title: 'Depth (m)', autorange: 'reversed', gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb', zeroline: false },
+    xaxis: { title: 'Temperature (°C)', gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb', zeroline: false, scaleanchor: "y", scaleratio: 1 },
+    yaxis: { 
+      title: 'Depth (m)', 
+      autorange: 'reversed', 
+      gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb', 
+      zeroline: false,
+    },
     legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center' },
     hovermode: 'x unified'
   };
 
+  const floatData = [
+    { id: 'Float #98765 (Warm Core)', last_temp: floatA_data.x[0], min_temp: Math.min(...floatA_data.x) },
+    { id: 'Float #12345 (Cold Intrusion)', last_temp: floatB_data.x[0], min_temp: Math.min(...floatB_data.x) },
+    { id: 'Float #54321 (Standard Profile)', last_temp: floatC_data.x[0], min_temp: Math.min(...floatC_data.x) },
+  ];
+
+  const handleExportPDF = () => {
+    alert("Exporting to PDF... (Functionality to be implemented)");
+  };
+
   return (
-    <section className="bg-card p-4 sm:p-6 rounded-xl shadow-lg animate-fade-in">
-      <h3 className="text-xl font-bold mb-4">Float Profile Comparison</h3>
-      <div className="w-full h-[65vh]">
-        <Plot
-          data={[floatA_data, floatB_data, floatC_data]}
-          layout={layout}
-          style={{ width: "100%", height: "100%" }}
-          useResizeHandler
-        />
+    <div className="w-full h-screen overflow-y-scroll snap-y snap-mandatory bg-background text-foreground font-sans">
+      <div className="max-w-7xl mx-auto h-screen snap-center flex-shrink-0 bg-card p-4 sm:p-6 rounded-xl shadow-lg flex flex-col justify-center animate-fade-in">
+        <h3 className="text-xl font-bold mb-4">Float Profile Comparison</h3>
+        <div className="w-full h-[65vh]">
+          <Plot
+            data={[floatA_data, floatB_data, floatC_data]}
+            layout={layout}
+            style={{ width: "100%", height: "100%" }}
+            useResizeHandler
+          />
+        </div>
       </div>
+
+      <div className="max-w-7xl mx-auto h-screen snap-center flex-shrink-0 bg-card p-4 sm:p-6 rounded-xl shadow-lg flex flex-col justify-center">
+        <h4 className="text-lg font-bold mb-4">Summary Table</h4>
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-center divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-8 py-5 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Float ID</th>
+                <th className="px-8 py-5 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Last Temperature (°C)</th>
+                <th className="px-8 py-5 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Min Temperature (°C)</th>
+              </tr>
+            </thead>
+            <tbody className="bg-card divide-y divide-gray-200 dark:divide-gray-700">
+              {floatData.map((float, index) => (
+                <tr key={index} className="hover:bg-muted/50 transition-colors">
+                  <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-left">{float.id}</td>
+                  <td className="px-8 py-5 whitespace-nowrap text-sm text-center">{float.last_temp}</td>
+                  <td className="px-8 py-5 whitespace-nowrap text-sm text-center">{float.min_temp}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto h-screen snap-center flex-shrink-0 bg-card/80 backdrop-blur-sm shadow-xl rounded-xl p-8 flex flex-col justify-center space-y-6">
+        <h4 className="text-2xl font-extrabold text-primary mb-4">Conclusion - Key Takeaways</h4>
+        <ul className="list-disc list-inside space-y-3 text-muted-foreground text-lg">
+          <li>**Float #98765** shows a "Warm Core" profile, with the highest surface temperature of the three floats.</li>
+          <li>**Float #12345** exhibits a "Cold Intrusion" pattern, with significantly lower temperatures at the surface and throughout its profile compared to the others.</li>
+          <li>All three floats demonstrate a general trend of decreasing temperature as depth increases.</li>
+          <li>At a depth of 1000m, the temperatures of the three floats are very similar, suggesting a more uniform deep-water environment.</li>
+          <li>**Float #54321** represents a "Standard Profile," with temperatures falling between the warm core and cold intrusion examples.</li>
+        </ul>
+        <button 
+          onClick={handleExportPDF} 
+          className="mt-8 px-6 py-3 self-center bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-full shadow-lg hover:scale-105 transition-all transform active:scale-95"
+        >
+          Export as PDF
+        </button>
+      </div>
+      
       <style jsx>{`
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(10px); }
@@ -401,29 +538,135 @@ const CompareTab = ({ theme }) => {
           animation: fade-in 0.5s ease-out forwards;
         }
       `}</style>
-    </section>
+    </div>
   );
 };
 
-const InsightsTab = () => (
-  <section className="grid md:grid-cols-3 gap-6">
-    {[
-        { title: 'Unusual Salinity Drop', text: 'Detected a significant drop in salinity in the Bay of Bengal, potentially linked to increased freshwater influx.' },
-        { title: 'Oxygen Minimum Zone', text: 'Analysis shows an expansion of the Oxygen Minimum Zone in the Arabian Sea over the last quarter.' },
-        { title: 'Heatwave Anomaly', text: 'An underwater heatwave anomaly was observed in the Southern Indian Ocean, with temperatures 2°C above average.' }
-    ].map((insight, i) => (
-      <div key={i} className="bg-card p-6 rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all transform">
-        <h4 className="font-bold text-lg">{insight.title}</h4>
-        <p className="text-sm mt-2 text-muted-foreground">{insight.text}</p>
-        <div className="mt-4">
-          <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors">
-            View Details
-          </button>
-        </div>
-      </div>
-    ))}
-  </section>
-);
+const InsightsTab = () => {
+  const insightData = [
+    {
+      title: 'Cause & Effect Analysis',
+      icon: Layers,
+      color: 'from-blue-500 to-purple-600',
+      text: 'Analysis of data from Float #12345 suggests a direct correlation between a cold water intrusion and a significant drop in surface salinity. This event appears to be caused by an increased influx of meltwater from polar regions.',
+      buttonText: 'Explore Cause & Effect',
+      span: 'md:col-span-2'
+    },
+    {
+      title: 'Max Temperature Warning',
+      icon: Zap,
+      color: 'from-red-500 to-red-800',
+      text: 'An underwater heatwave anomaly was observed in the Southern Indian Ocean, with temperatures 2°C above the seasonal average. This poses a significant threat to local marine ecosystems.',
+      buttonText: 'View Heatwave Data',
+      vibrate: true,
+    },
+    {
+      title: 'Increasing Salinity',
+      icon: Droplet,
+      color: 'from-green-500 to-teal-600',
+      text: 'Long-term data from the region shows a consistent increase in deep-water salinity levels. This is a critical indicator of a changing thermohaline circulation which can be deadly for the environment.',
+      buttonText: 'See Salinity Trends',
+    },
+    {
+      title: 'Ecosystem Impact',
+      icon: Globe,
+      color: 'from-yellow-400 to-orange-600',
+      text: 'The observed oceanographic anomalies have led to localized bleaching events and a decrease in phytoplankton density, signaling a potential shift in the region\'s marine ecosystem.',
+      buttonText: 'Analyze Ecosystem Health',
+    },
+    {
+      title: 'Uncategorized Anomaly',
+      icon: Hash,
+      color: 'from-indigo-500 to-pink-600',
+      text: 'A novel data pattern has been detected in a remote section of the Indian Ocean. Its cause is currently unknown, highlighting the need for further exploration and data collection.',
+      buttonText: 'Investigate Anomaly',
+    },
+  ];
+
+  const [inView, setInView] = useState(false);
+  const domRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setInView(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = domRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+    
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, []);
+
+  return (
+    <section ref={domRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 md:p-6 lg:p-8">
+      {insightData.map((insight, index) => {
+        const InsightIcon = insight.icon;
+        return (
+          <div 
+            key={index} 
+            className={`
+              p-8 bg-card rounded-3xl shadow-2xl flex flex-col justify-between 
+              hover:shadow-primary/50 transition-shadow
+              ${insight.span || ''}
+              ${inView ? 'animate-slide-up' : 'opacity-0'}
+              ${insight.vibrate ? 'vibrate-on-load' : ''}
+            `}
+            style={{ animationDelay: `${index * 0.15}s` }}
+          >
+            <div>
+              <h4 className={`font-extrabold text-2xl text-transparent bg-clip-text bg-gradient-to-r ${insight.color} mb-4 flex items-center font-mono`}>
+                <InsightIcon size={32} className="mr-3" /> {insight.title}
+              </h4>
+              <p className="text-muted-foreground leading-relaxed text-lg">
+                {insight.text}
+              </p>
+            </div>
+            <div className="mt-6 self-start">
+              <button className={`px-6 py-3 bg-gradient-to-r ${insight.color} text-white font-bold rounded-full shadow-lg hover:scale-105 transition-all transform active:scale-95`}>
+                {insight.buttonText}
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      <style jsx>{`
+        @keyframes vibrate-on-load {
+          0% { transform: translate(0); }
+          20% { transform: translate(-2px, 2px); }
+          40% { transform: translate(-2px, -2px); }
+          60% { transform: translate(2px, 2px); }
+          80% { transform: translate(2px, -2px); }
+          100% { transform: translate(0); }
+        }
+        .vibrate-on-load {
+          animation: vibrate-on-load 0.2s linear infinite;
+          animation-iteration-count: 1;
+        }
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slide-up 0.6s ease-out forwards;
+        }
+      `}</style>
+    </section>
+  );
+};
 
 const AboutTab = () => (
     <section className="mt-4">
@@ -568,13 +811,6 @@ const NewbieDistinguish = ({ theme }) => {
 };
 
 const NewbieInfo = () => <InsightsTab />;
-
-const FilterGroup = ({ label, children }) => (
-  <div className="flex flex-col gap-2">
-    <label className="text-sm font-medium text-muted-foreground">{label}</label>
-    {children}
-  </div>
-);
 
 const WaveAnimation = () => (
   <div className="wave-animation-overlay">

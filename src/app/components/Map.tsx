@@ -1,5 +1,3 @@
-// src/app/components/Map.tsx
-
 "use client";
 
 import React, { useEffect } from "react";
@@ -14,28 +12,37 @@ import {
 import L, { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Fix for default icon paths
-delete (L.Icon.Default as any).prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
-  iconUrl: require("leaflet/dist/images/marker-icon.png"),
-  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
-});
+// Declare icon variables to be assigned later on the client-side
+let floatIcon: L.Icon;
+let selectedFloatIcon: L.Icon;
 
-const floatIcon = new L.Icon({
-    iconUrl: '/float-icon.svg',
-    iconSize: [25, 25],
-    iconAnchor: [12, 25],
-    popupAnchor: [0, -25]
-});
+// This code block runs only on the client side, after the component has mounted
+if (typeof window !== 'undefined') {
+    // Fix for default icon paths
+    // This is necessary because Next.js bundles can break the default icon URLs
+    delete (L.Icon.Default as any).prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+        iconUrl: require("leaflet/dist/images/marker-icon.png"),
+        shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+    });
 
-const selectedFloatIcon = new L.Icon({
-    iconUrl: '/float-icon-selected.svg',
-    iconSize: [35, 35],
-    iconAnchor: [17, 35],
-    popupAnchor: [0, -35]
-});
+    floatIcon = new L.Icon({
+        iconUrl: '/float-icon.svg',
+        iconSize: [25, 25],
+        iconAnchor: [12, 25],
+        popupAnchor: [0, -25]
+    });
 
+    selectedFloatIcon = new L.Icon({
+        iconUrl: '/float-icon-selected.svg',
+        iconSize: [35, 35],
+        iconAnchor: [17, 35],
+        popupAnchor: [0, -35]
+    });
+}
+
+// Custom hook to handle map view changes
 const ChangeView = ({ center, zoom, transition }: { center: LatLngExpression; zoom: number; transition: 'fly' | 'instant' }) => {
   const map = useMap();
   useEffect(() => {
@@ -59,6 +66,7 @@ interface MapProps {
 }
 
 export default function Map({ center, zoom, selectedFloatId, onFloatSelect, transition, floats, theme }: MapProps) {
+  // We still need this check here for the main component's render logic
   if (typeof window === "undefined") return null;
 
   const lightTileUrl = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
