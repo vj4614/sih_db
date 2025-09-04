@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import type { FC } from "react";
 import { Sun, Moon, MessageSquare, BarChart2, GitCompare, Zap, Info, User, GraduationCap, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { RESEARCHER_TABS, NEWBIE_TABS, Tab, TabConfig, Mode } from "../../types.ts";
+import { RESEARCHER_TABS, NEWBIE_TABS, Tab, TabConfig, Mode } from "../../types";
 
 interface HeaderProps {
     theme: 'light' | 'dark';
@@ -58,26 +58,20 @@ export default function Header({ theme, setTheme, activeTab, setActiveTab, mode,
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-            <div className={`flex items-center gap-2 rounded-full overflow-hidden transition-all duration-200 ${isSidebarOpen ? 'p-1 bg-muted' : 'p-0 h-0'}`}>
-                <button
-                    onClick={onModeToggle}
-                    className={`flex-1 text-center py-2 rounded-full text-sm font-medium transition-colors ${
-                        mode === 'researcher' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60'
-                    }`}
-                >
-                    <GraduationCap size={20} />
-                    <span className="ml-2">Researcher</span>
-                </button>
-                <button
-                    onClick={onModeToggle}
-                    className={`flex-1 text-center py-2 rounded-full text-sm font-medium transition-colors ${
-                        mode === 'newbie' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60'
-                    }`}
-                >
-                    <User size={20} />
-                    <span className="ml-2">Newbie</span>
-                </button>
+        <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-4">
+            <div className={`flex items-center justify-between transition-all duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 h-0 pointer-events-none'}`}>
+                <div className="flex items-center gap-2">
+                    <User size={16} className={`transition-colors duration-300 ${mode === 'newbie' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`text-sm font-medium transition-colors duration-300 ${mode === 'newbie' ? 'text-foreground' : 'text-muted-foreground'}`}>Newbie</span>
+                </div>
+                <label htmlFor="mode-toggle" className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="mode-toggle" className="sr-only peer" checked={mode === 'researcher'} onChange={onModeToggle} />
+                    <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                </label>
+                <div className="flex items-center gap-2">
+                    <GraduationCap size={16} className={`transition-colors duration-300 ${mode === 'researcher' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`text-sm font-medium transition-colors duration-300 ${mode === 'researcher' ? 'text-foreground' : 'text-muted-foreground'}`}>Pro</span>
+                </div>
             </div>
             <button onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} className={`w-full flex items-center gap-4 p-2 rounded-lg hover:bg-muted transition-colors`}>
                 {theme === "dark" ? <Sun size={24} /> : <Moon size={24} />}

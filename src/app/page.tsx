@@ -29,7 +29,7 @@ const mockFloats = [
 
 export default function Page() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
-  const [mode, setMode] = useState<Mode>("researcher");
+  const [mode, setMode] = useState<Mode>("newbie");
   const [showWaveAnimation, setShowWaveAnimation] = useState(false);
   const [showDrippingEffect, setShowDrippingEffect] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
@@ -41,29 +41,31 @@ export default function Page() {
   const [selectedFloat, setSelectedFloat] = useState(null);
   const [regionSummary, setRegionSummary] = useState(null);
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Gemini-style sidebar is open by default on desktop
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [filters, setFilters] = useState({ startDate: "2023-03-01", endDate: "2023-03-31", region: "Indian Ocean", parameter: "Salinity", floatId: "" });
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
 
   const handleModeToggle = () => {
-    if (mode === "researcher") {
-      setShowWaveAnimation(true);
-      setShowDrippingEffect(false); 
-      setTimeout(() => {
-        setMode("newbie");
-        setActiveTab("visualize");
+    // Always trigger the wave animation when switching
+    setShowWaveAnimation(true);
+    setShowDrippingEffect(false); 
+
+    // After the animation plays, update the state
+    setTimeout(() => {
+        const isSwitchingToNewbie = mode === "researcher";
+        
+        setMode(isSwitchingToNewbie ? "newbie" : "researcher");
+        setActiveTab("chat");
+        setMessages([]);
         setShowWaveAnimation(false);
-        setShowDrippingEffect(true); 
-        setTimeout(() => { setShowDrippingEffect(false); }, 1500); 
-      }, 5000); 
-    } else {
-      setMode("researcher");
-      setActiveTab("visualize"); 
-      setShowWaveAnimation(false);
-      setShowDrippingEffect(false);
-    }
+
+        if (isSwitchingToNewbie) {
+            setShowDrippingEffect(true); 
+            setTimeout(() => { setShowDrippingEffect(false); }, 1500); 
+        }
+    }, 5000); 
   };
 
   const handleFloatSelect = (float) => { setMapTransition('fly'); setRegionSummary(null); setSelectedFloat(float); setMapCenter(float.position); setMapZoom(7); };
@@ -90,7 +92,7 @@ export default function Page() {
   const renderDashboard = () => {
     if (mode === 'newbie') {
       switch (activeTab) {
-        case "chat": return <NewbieHelper messages={messages} setMessages={setMessages} />;
+        case "chat": return <NewbieHelper messages={messages} setMessages={setMessages} theme={theme} />;
         case "visualize": return (
           <NewbieDiagram
             floats={mockFloats} filters={filters} handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}
@@ -125,7 +127,7 @@ export default function Page() {
     <div className="flex h-screen bg-background text-foreground font-sans">
       <Header 
         theme={theme} setTheme={setTheme} activeTab={activeTab} setActiveTab={setActiveTab} 
-        mode={mode} onModeToggle={handleModeToggle} showDrippingEffect={showDrippingEffect}
+        mode={mode} onModeToggle={handleModeToggle}
         isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen}
       />
       <main className={`flex-1 p-4 sm:p-6 md:p-8 relative transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'}`}>
