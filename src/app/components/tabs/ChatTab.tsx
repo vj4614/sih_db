@@ -1,34 +1,133 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Send } from 'lucide-react';
-import ChatGreeting from "../chat/ChatGreeting";
+import React, { useState, useRef, useEffect } from "react";
+import { Send, Sparkles } from "lucide-react";
 import ChatVisuals from "../chat/ChatVisuals";
+import ChatGreeting from "../chat/ChatGreeting";
+import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
 
-export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, setChatHasVisuals }) {
-    const handleSendMessage = (text: string) => {
-        if (!text) return;
-        if (!chatHasVisuals) setChatHasVisuals(true);
-        setMessages((prev) => [...prev, { id: Date.now(), who: 'user', text }]);
-        setTimeout(() => { setMessages((prev) => [...prev, { id: Date.now() + 1, who: 'ai', text: `Here are the visualizations based on your request for "${text}"` }]); }, 800);
-    };
-    const isInitialState = messages.length === 0;
-    return (
-        <section className={`grid gap-6 h-[calc(100vh-150px)] transition-all duration-500 ${chatHasVisuals ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1'}`}>
-            <div className={`bg-card rounded-xl shadow-lg p-4 sm:p-6 flex flex-col h-full ${!chatHasVisuals && 'max-w-4xl mx-auto w-full'}`}>
-                <h2 className="text-xl font-bold mb-4 border-b pb-3 text-primary">FloatChat AI</h2>
-                {isInitialState ? <ChatGreeting /> : (
-                    <div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">
-                        {messages.map((m) => (<div key={m.id} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-md p-3 rounded-2xl ${m.who === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}><p className="text-sm">{m.text}</p></div></div>))}
-                    </div>
+export default function ChatTab({ messages, setMessages, theme }) {
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const mockApiResponse = (userMessage) => {
+    setIsLoading(true);
+    setIsLaunching(true);
+
+    setTimeout(() => {
+      setIsLaunching(false);
+      let botResponse = "Here are the visualizations based on your request.";
+      let hasVisual = true;
+      
+      const lowerCaseMessage = userMessage.toLowerCase();
+      if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
+        botResponse = "Hello there! I'm FloatChat AI. How can I assist you with ARGO float data today?";
+        hasVisual = false;
+      } else if (lowerCaseMessage.includes("meaning of life")) {
+        botResponse = "As an AI, I don't ponder philosophical questions, but I can help you find data on ocean life!";
+        hasVisual = false;
+      }
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { id: prevMessages.length + 1, text: botResponse, sender: "bot", visual: hasVisual },
+      ]);
+      setIsLoading(false);
+      scrollToBottom();
+    }, 2000);
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (inputMessage.trim() && !isLoading) {
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { id: prevMessages.length + 1, text: inputMessage, sender: "user" },
+      ]);
+      mockApiResponse(inputMessage);
+      setInputMessage("");
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-card rounded-2xl shadow-glow border border-gray-200 dark:border-gray-800 p-6 sm:p-8 relative">
+      <div className="flex items-center text-xl font-semibold text-foreground/80 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <Sparkles size={24} className="mr-3 text-primary" />
+        FloatChat AI
+      </div>
+
+      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+        {messages.length === 0 ? (
+          <ChatGreeting />
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[75%] px-5 py-3 rounded-xl text-lg relative group ${
+                  message.sender === "user"
+                    ? "bg-primary text-primary-foreground rounded-br-none"
+                    : "bg-muted text-muted-foreground rounded-bl-none border border-gray-200 dark:border-gray-700"
+                }`}
+                style={{
+                  boxShadow: message.sender === "user" ? '0 4px 8px rgba(0, 119, 182, 0.2)' : '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                {message.text}
+                {message.sender === "bot" && message.visual && (
+                  <div className="mt-4">
+                    <ChatVisuals theme={theme} />
+                  </div>
                 )}
-                <div className="mt-auto flex items-center gap-2 border-t pt-4">
-                    <input id="chat-input" className="flex-1 p-3 rounded-full border border-muted bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none" placeholder="Ask a question about ARGO floats..."
-                        onKeyDown={(e) => { if (e.key === 'Enter') { handleSendMessage((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
-                    <button onClick={() => { const input = document.getElementById('chat-input') as HTMLInputElement; if (input) { handleSendMessage(input.value); input.value = ''; } }} className="p-3 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-transform transform active:scale-95"><Send size={20} /></button>
-                </div>
+              </div>
             </div>
-            {chatHasVisuals && <ChatVisuals theme={theme} />}
-        </section>
-    );
-};
+          ))
+        )}
+        {isLaunching && (
+          <div className="flex justify-start">
+            <div className="max-w-[75%] px-5 py-3 rounded-xl bg-muted text-muted-foreground rounded-bl-none border border-gray-200 dark:border-gray-700">
+              <OceanLoadingAnimation />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form onSubmit={handleSendMessage} className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center gap-4">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder="Ask a question about ARGO floats..."
+            className="w-full pl-5 pr-12 py-3 bg-background border border-gray-300 dark:border-gray-600 rounded-full text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-md placeholder-muted-foreground"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors ${
+              inputMessage.trim() && !isLoading
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            }`}
+            disabled={!inputMessage.trim() || isLoading}
+          >
+            <Send size={20} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

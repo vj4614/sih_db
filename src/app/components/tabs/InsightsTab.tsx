@@ -118,115 +118,90 @@ export default function InsightsTab({ theme }) {
         }
       }
       
-      const combinedDates = [...predictedDates, ...dates];
+      const combineDataPoints = (historicalData, predictedData) => [
+          ...historicalData,
+          ...predictedData.slice(1)
+      ];
 
-      const predictValue = (historicalData, rate, months) => {
-          const trendStartValue = historicalData[0];
-          return historicalData.map((d, i) => d + rate * (i + months));
-      }
+      const combineLabels = (historicalDates, predictedDates) => [
+          ...historicalDates,
+          ...predictedDates.slice(1)
+      ];
       
       const salinityChangeRate = (historicalSalinity[lastHistoricalIndex] - historicalSalinity[0]) / (lastHistoricalIndex);
       const meltwaterChangeRate = (historicalMeltwater[lastHistoricalIndex] - historicalMeltwater[0]) / (lastHistoricalIndex);
 
-      let predictedSalinityData = [];
-      let predictedMeltwaterData = [];
+      let futureSalinityPrediction = [];
+      let futureMeltwaterPrediction = [];
       
-      if (predictionMonths >= 0) {
-        const futureSalinityPrediction = new Array(Math.round(predictionMonths)).fill(0).map((_, i) => {
+      if (predictionMonths > 0) {
+        futureSalinityPrediction = [historicalSalinity[lastHistoricalIndex], ...new Array(Math.round(predictionMonths)).fill(0).map((_, i) => {
             return historicalSalinity[lastHistoricalIndex] + (i + 1) * salinityChangeRate;
-        });
+        })];
         
-        const futureMeltwaterPrediction = new Array(Math.round(predictionMonths)).fill(0).map((_, i) => {
+        futureMeltwaterPrediction = [historicalMeltwater[lastHistoricalIndex], ...new Array(Math.round(predictionMonths)).fill(0).map((_, i) => {
             return historicalMeltwater[lastHistoricalIndex] + (i + 1) * meltwaterChangeRate;
-        });
+        })];
 
-        predictedSalinityData = [
+        predictedDates = [dates[dates.length - 1], ...predictedDates];
+      } else if (predictionMonths < 0) {
+        const pastMonths = Math.round(Math.abs(predictionMonths));
+        futureSalinityPrediction = new Array(pastMonths).fill(0).map((_, i) => {
+            return historicalSalinity[0] + (i - pastMonths) * salinityChangeRate;
+        }).concat(historicalSalinity);
+        
+        futureMeltwaterPrediction = new Array(pastMonths).fill(0).map((_, i) => {
+            return historicalMeltwater[0] + (i - pastMonths) * meltwaterChangeRate;
+        }).concat(historicalMeltwater);
+        
+        const firstDate = new Date('2023-01-01');
+        for (let i = 1; i <= pastMonths; i++) {
+            const newDate = new Date(firstDate);
+            newDate.setMonth(firstDate.getMonth() - i);
+            predictedDates.unshift(newDate.toLocaleString('en-us', { month: 'short', year: 'numeric' }));
+        }
+        
+      }
+      
+      const predictedSalinityData = [
           {
-            x: dates,
-            y: historicalSalinity,
+            x: predictionMonths >= 0 ? dates : predictedDates.slice(0, Math.round(Math.abs(predictionMonths))),
+            y: predictionMonths >= 0 ? historicalSalinity : futureSalinityPrediction.slice(0, Math.round(Math.abs(predictionMonths))),
             name: 'Historical Salinity',
             type: 'scatter',
             mode: 'lines+markers',
             line: { color: '#3b82f6', width: 2 }
           },
           {
-            x: predictedDates,
-            y: futureSalinityPrediction,
+            x: predictionMonths >= 0 ? predictedDates : dates.slice(0, dates.length - Math.round(Math.abs(predictionMonths))),
+            y: predictionMonths >= 0 ? futureSalinityPrediction : futureSalinityPrediction.slice(Math.round(Math.abs(predictionMonths))),
             name: 'Predicted Trend',
             type: 'scatter',
             mode: 'lines',
             line: { color: '#3b82f6', width: 2, dash: 'dot' },
             showlegend: true
           }
-        ];
+      ];
 
-        predictedMeltwaterData = [
-            {
-              x: dates,
-              y: historicalMeltwater,
-              name: 'Historical Meltwater',
-              type: 'scatter',
-              mode: 'lines+markers',
-              line: { color: '#ef4444', width: 2 }
-            },
-            {
-              x: predictedDates,
-              y: futureMeltwaterPrediction,
-              name: 'Predicted Trend',
-              type: 'scatter',
-              mode: 'lines',
-              line: { color: '#ef4444', width: 2, dash: 'dot' },
-              showlegend: true
-            }
-        ];
-
-      } else { // Handle past simulation
-        const pastSalinityPrediction = new Array(Math.round(Math.abs(predictionMonths))).fill(0).map((_, i) => {
-            return historicalSalinity[0] + (i + predictionMonths) * salinityChangeRate;
-        });
-        const pastMeltwaterPrediction = new Array(Math.round(Math.abs(predictionMonths))).fill(0).map((_, i) => {
-            return historicalMeltwater[0] + (i + predictionMonths) * meltwaterChangeRate;
-        });
-        
-        predictedSalinityData = [
+      const predictedMeltwaterData = [
           {
-            x: predictedDates,
-            y: pastSalinityPrediction,
-            name: 'Historical Simulation',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#3b82f6', width: 2, dash: 'dot' },
-            showlegend: true
-          },
-          {
-            x: dates,
-            y: historicalSalinity,
-            name: 'Historical Salinity',
+            x: predictionMonths >= 0 ? dates : predictedDates.slice(0, Math.round(Math.abs(predictionMonths))),
+            y: predictionMonths >= 0 ? historicalMeltwater : futureMeltwaterPrediction.slice(0, Math.round(Math.abs(predictionMonths))),
+            name: 'Historical Meltwater',
             type: 'scatter',
             mode: 'lines+markers',
-            line: { color: '#3b82f6', width: 2 }
+            line: { color: '#ef4444', width: 2 }
+          },
+          {
+            x: predictionMonths >= 0 ? predictedDates : dates.slice(0, dates.length - Math.round(Math.abs(predictionMonths))),
+            y: predictionMonths >= 0 ? futureMeltwaterPrediction : futureMeltwaterPrediction.slice(Math.round(Math.abs(predictionMonths))),
+            name: 'Predicted Trend',
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: '#ef4444', width: 2, dash: 'dot' },
+            showlegend: true
           }
-        ];
-        predictedMeltwaterData = [
-            {
-              x: predictedDates,
-              y: pastMeltwaterPrediction,
-              name: 'Historical Simulation',
-              type: 'scatter',
-              mode: 'lines',
-              line: { color: '#ef4444', width: 2, dash: 'dot' },
-              showlegend: true
-            },
-            {
-              x: dates,
-              y: historicalMeltwater,
-              name: 'Historical Meltwater',
-              type: 'scatter',
-              mode: 'lines+markers',
-              line: { color: '#ef4444', width: 2 }
-            }
-        ];
-      }
+      ];
       
       const layout = (title) => ({
         title: title,

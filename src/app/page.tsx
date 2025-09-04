@@ -41,6 +41,7 @@ export default function Page() {
   const [selectedFloat, setSelectedFloat] = useState(null);
   const [regionSummary, setRegionSummary] = useState(null);
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Gemini-style sidebar is open by default on desktop
   
   const [filters, setFilters] = useState({ startDate: "2023-03-01", endDate: "2023-03-31", region: "Indian Ocean", parameter: "Salinity", floatId: "" });
 
@@ -121,12 +122,13 @@ export default function Page() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground font-sans overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground font-sans">
       <Header 
         theme={theme} setTheme={setTheme} activeTab={activeTab} setActiveTab={setActiveTab} 
         mode={mode} onModeToggle={handleModeToggle} showDrippingEffect={showDrippingEffect}
+        isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen}
       />
-      <main className="flex-1 p-4 sm:p-6 md:p-8 relative">
+      <main className={`flex-1 p-4 sm:p-6 md:p-8 relative transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'}`}>
         {showWaveAnimation && <WaveAnimation />}
         {renderDashboard()}
       </main>
