@@ -1,10 +1,18 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, FC } from "react";
 import { Send, Sparkles, SquarePlus } from "lucide-react";
 import ChatVisuals from "../chat/ChatVisuals";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
+
+// Define the NavIcon for the bot's avatar
+const NavIcon: FC = () => (
+    <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-md">
+      🌊
+    </div>
+);
+
 
 export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, setChatHasVisuals, handleNewChat }) {
   const [inputMessage, setInputMessage] = useState("");
@@ -48,9 +56,10 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (inputMessage.trim() && !isLoading) {
+      const newUserMessage = { id: messages.length + 1, text: inputMessage, sender: "user" };
       setMessages((prevMessages) => [
         ...prevMessages,
-        { id: prevMessages.length + 1, text: inputMessage, sender: "user" },
+        newUserMessage,
       ]);
       mockApiResponse(inputMessage);
       setInputMessage("");
@@ -71,25 +80,41 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
-          {messages.length === 0 ? (
+          {messages.length === 0 && !isLoading ? (
             <ChatGreeting />
           ) : (
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
+                className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
               >
+                {message.sender === 'ai' && (
+                    <div className="flex-shrink-0">
+                        <NavIcon />
+                    </div>
+                )}
                 <div
-                  className={`max-w-[85%] px-5 py-3 rounded-xl text-base relative group ${
-                    message.sender === "user"
-                      ? "bg-gradient-to-br from-primary to-sky-400 text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`max-w-[85%] px-5 py-3 rounded-xl text-base relative group
+                    ${
+                      message.sender === "user"
+                        ? 'bg-gradient-to-br from-teal-400 to-cyan-500 text-white'
+                        : 'bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200'
+                    }`}
                 >
-                  {isLoading && message.id === messages[messages.length - 1].id ? <OceanLoadingAnimation /> : message.text}
+                  <p className={message.sender === 'ai' ? 'font-mono' : 'font-medium'}>{message.text}</p>
                 </div>
               </div>
             ))
+          )}
+          {isLoading && (
+            <div className="flex items-start gap-3 justify-start animate-fade-in">
+                <div className="flex-shrink-0">
+                    <NavIcon />
+                </div>
+                <div className={`max-w-[85%] px-5 py-3 rounded-xl text-base relative group bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200`}>
+                    <OceanLoadingAnimation />
+                </div>
+            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
