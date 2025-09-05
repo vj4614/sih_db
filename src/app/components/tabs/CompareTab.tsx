@@ -2,10 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-// FIXED: Added Download and Printer to the import statement
 import { Download, Printer } from 'lucide-react';
-
-const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
 /* Types */
 type FloatSeries = {

@@ -1,4 +1,3 @@
-// orb-20/sih_chatbot/SIH_chatbot-15d088a2026fceda4bbdf988ab4a10cb2fd54cdb/src/app/page.tsx
 "use client";
 
 import React, { useState, useEffect, FC } from "react";
@@ -27,7 +26,7 @@ export default function Page() {
   const [showWaveAnimation, setShowWaveAnimation] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [messages, setMessages] = useState([]);
-  const [chatHasVisuals, setChatHasVisuals] = useState(false);
+  const [selectedVisual, setSelectedVisual] = useState<string | null>(null); // State for selected visual in chat
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
   const [mapZoom, setMapZoom] = useState(3);
   const [selectedFloat, setSelectedFloat] = useState(null);
@@ -35,7 +34,7 @@ export default function Page() {
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [filters, setFilters] = useState({ startDate: "2023-03-01", endDate: "2023-03-31", region: "Indian Ocean", parameter: "Salinity", floatId: "" });
-  const [isChatting, setIsChatting] = useState(false); // New state to control chat blur
+  const [isChatting, setIsChatting] = useState(false);
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
   
@@ -45,13 +44,21 @@ export default function Page() {
     
     // Logic for blur based on tab and chat state
     const blurTabs = ["visualize", "compare", "insights"];
-    if (blurTabs.includes(activeTab) || (activeTab === "chat" && isChatting)) {
+    if (blurTabs.includes(activeTab) || (activeTab === "chat" && (isChatting || selectedVisual !== null))) {
       bg.style.filter = "blur(12px) brightness(0.8)";
     } else {
       bg.style.filter = "none";
     }
+  }, [activeTab, isChatting, selectedVisual]);
 
-  }, [activeTab, isChatting]);
+  // NEW: Effect to control sidebar state based on selectedVisual
+  useEffect(() => {
+    if (selectedVisual !== null) {
+        setIsSidebarOpen(false);
+    } else {
+        setIsSidebarOpen(true);
+    }
+  }, [selectedVisual]);
 
 
   const handleModeToggle = () => {
@@ -61,16 +68,16 @@ export default function Page() {
         setMode(isSwitchingToNewbie ? "newbie" : "researcher");
         setActiveTab("chat");
         setMessages([]);
-        setChatHasVisuals(false); // Reset visuals on mode switch
-        setIsChatting(false); // Reset chat state on mode switch
+        setSelectedVisual(null);
+        setIsChatting(false);
         setShowWaveAnimation(false);
     }, 1200);
   };
 
   const handleNewChat = () => {
     setMessages([]);
-    setChatHasVisuals(false);
-    setIsChatting(false); // Reset chat state
+    setSelectedVisual(null);
+    setIsChatting(false);
   };
 
   const handleFloatSelect = (float) => { setMapTransition('fly'); setRegionSummary(null); setSelectedFloat(float); setMapCenter(float.position); setMapZoom(7); };
@@ -113,7 +120,7 @@ export default function Page() {
     }
     return (
       <div className="max-w-7xl mx-auto h-full">
-        {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} chatHasVisuals={chatHasVisuals} setChatHasVisuals={setChatHasVisuals} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />}
+        {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} selectedVisual={selectedVisual} setSelectedVisual={setSelectedVisual} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />}
         {activeTab === "visualize" && (
           <VisualizeTab
             floats={mockFloats} filters={filters} handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}

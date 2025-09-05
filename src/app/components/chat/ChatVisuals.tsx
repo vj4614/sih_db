@@ -1,21 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import dynamic from "next/dynamic";
 import LoadingSpinner from './LoadingSpinner';
+import { X } from 'lucide-react';
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
-export default function ChatVisuals({ theme }) {
-    const [visiblePlots, setVisiblePlots] = useState(0);
-
-    useEffect(() => {
-        const timer1 = setTimeout(() => setVisiblePlots(1), 500);
-        const timer2 = setTimeout(() => setVisiblePlots(2), 1200);
-        const timer3 = setTimeout(() => setVisiblePlots(3), 1900);
-        return () => { clearTimeout(timer1); clearTimeout(timer2); clearTimeout(timer3); };
-    }, []);
-
+export default function ChatVisuals({ theme, selectedVisual, onClose }) {
     const depth = [0, 100, 200, 400, 600, 800, 1000];
     const plotLayout = (title, xaxis, yaxis) => ({
         title: { text: title, font: { size: 18, family: 'Poppins', color: theme === 'dark' ? '#e6edf3' : '#1a202c', weight: '600' } },
@@ -28,12 +20,41 @@ export default function ChatVisuals({ theme }) {
         legend: { font: { family: 'Fira Code' } },
         hovermode: 'closest'
     });
+    
+    let plotData = [];
+    let plotLayoutConfig = {};
+    let plotTitle = "";
 
+    switch (selectedVisual) {
+        case 'Temperature Profile':
+            plotData = [{ y: depth, x: [25, 22, 18, 12, 8, 6, 5], name: 'Temp', type: 'scatter', mode: 'lines', line: { color: '#f97316', width: 3 } }];
+            plotTitle = 'Temperature Profile';
+            plotLayoutConfig = plotLayout(plotTitle, 'Temp (°C)', 'Depth (m)');
+            break;
+        case 'Salinity Profile':
+            plotData = [{ y: depth, x: [34.4, 35.0, 35.6, 35.8, 36.0, 35.2, 34.8], name: 'Salinity', type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 3 } }];
+            plotTitle = 'Salinity Profile';
+            plotLayoutConfig = plotLayout(plotTitle, 'Salinity (PSU)', 'Depth (m)');
+            break;
+        case '2D Trajectory':
+            plotData = [{ y: [-14.0,-12.5,-11.0,-10.5,-9.0,-11.0,-12.0,-10.0], x: [75.0, 76.5, 75.5, 78.0, 79.0, 82.0, 84.0, 85.0], name: 'Trajectory', type: 'scatter', mode: 'lines', line: { color: '#10b981', width: 3 } }];
+            plotTitle = '2D Trajectory';
+            plotLayoutConfig = { ...plotLayout(plotTitle, 'Longitude', 'Latitude'), yaxis: { scaleanchor: "x", scaleratio: 1, gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb' } };
+            break;
+        default:
+            return <div className="flex items-center justify-center h-full"><p>No visual selected.</p></div>;
+    }
+    
     return (
-        <div className="md:col-span-2 bg-card rounded-xl shadow-lg p-4 flex flex-col gap-4 animate-fade-in overflow-y-auto">
-             <div className="h-[350px] w-full">{visiblePlots >= 1 ? (<div className="h-full w-full animate-plot-appear"><Plot data={[{ y: depth, x: [25, 22, 18, 12, 8, 6, 5], name: 'Temp', type: 'scatter', mode: 'lines', line: { color: '#f97316', width: 3 } }]} layout={plotLayout('Temperature Profile', 'Temp (°C)', 'Depth (m)')} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/></div>) : <LoadingSpinner /> }</div>
-            <div className="h-[350px] w-full">{visiblePlots >= 2 ? (<div className="h-full w-full animate-plot-appear"><Plot data={[{ y: depth, x: [34.4, 35.0, 35.6, 35.8, 36.0, 35.2, 34.8], name: 'Salinity', type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 3 } }]} layout={plotLayout('Salinity Profile', 'Salinity (PSU)', 'Depth (m)')} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/></div>) : visiblePlots >= 1 && <LoadingSpinner />}</div>
-             <div className="h-[350px] w-full">{visiblePlots >= 3 ? (<div className="h-full w-full animate-plot-appear"><Plot data={[{ y: [-14.0,-12.5,-11.0,-10.5,-9.0,-11.0,-12.0,-10.0], x: [75.0, 76.5, 75.5, 78.0, 79.0, 82.0, 84.0, 85.0], name: 'Trajectory', type: 'scatter', mode: 'lines', line: { color: '#10b981', width: 3 } }]} layout={{...plotLayout('2D Trajectory', 'Longitude', 'Latitude'), yaxis: { scaleanchor: "x", scaleratio: 1, gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb' }}} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/></div>) : visiblePlots >= 2 && <LoadingSpinner />}</div>
+        <div className="relative h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 animate-fade-in flex flex-col items-center justify-center">
+            <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted/50 transition-colors" title="Close Visual">
+                <X size={20} />
+            </button>
+            <div className="w-full h-full aspect-square max-w-full max-h-[calc(100vh-160px)] flex items-center justify-center">
+                <div className="w-full h-full animate-plot-appear">
+                    <Plot data={plotData} layout={plotLayoutConfig} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/>
+                </div>
+            </div>
         </div>
     );
 };

@@ -1,11 +1,11 @@
-// orb-20/sih_chatbot/SIH_chatbot-15d088a2026fceda4bbdf988ab4a10cb2fd54cdb/src/app/components/tabs/ChatTab.tsx
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from "react";
-import { Send, Sparkles, SquarePlus } from "lucide-react";
+import { Send, Sparkles, SquarePlus, X } from "lucide-react";
 import ChatVisuals from "../chat/ChatVisuals";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
+import ChatOptions from "../chat/ChatOptions";
 
 // Define the NavIcon for the bot's avatar
 const NavIcon: FC = () => (
@@ -15,7 +15,7 @@ const NavIcon: FC = () => (
 );
 
 
-export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, setChatHasVisuals, handleNewChat, setIsChatting }) {
+export default function ChatTab({ messages, setMessages, theme, selectedVisual, setSelectedVisual, handleNewChat, setIsChatting }) {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -26,34 +26,36 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, selectedVisual]);
 
   const mockApiResponse = (userMessage) => {
     setIsLoading(true);
     
-    // Set chatting state to true after the first message
     if (messages.length === 0) {
       setIsChatting(true);
     }
 
     setTimeout(() => {
-      let botResponse = "Here are the visualizations based on your request.";
-      let hasVisual = true;
-      
       const lowerCaseMessage = userMessage.toLowerCase();
-      if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
-        botResponse = "Hello there! I'm FloatChat AI. How can I assist you with ARGO float data today?";
-        hasVisual = false;
-      } else if (lowerCaseMessage.includes("meaning of life")) {
-        botResponse = "As an AI, I don't ponder philosophical questions, but I can help you find data on ocean life!";
-        hasVisual = false;
-      }
+      
+      let botResponse = { id: Date.now(), text: "I'm sorry, I can't provide that information right now. Please ask about float data or visuals.", sender: "bot", type: "text" };
+      let messageType = "text";
 
+      if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
+        botResponse = { id: Date.now(), text: "Hello there! I'm FloatChat AI. How can I assist you with ARGO float data today?", sender: "bot", type: "text" };
+        setSelectedVisual(null);
+      } else if (lowerCaseMessage.includes("meaning of life")) {
+        botResponse = { id: Date.now(), text: "As an AI, I don't ponder philosophical questions, but I can help you find data on ocean life!", sender: "bot", type: "text" };
+        setSelectedVisual(null);
+      } else if (lowerCaseMessage.includes("graph") || lowerCaseMessage.includes("show") || lowerCaseMessage.includes("visuals")) {
+        botResponse = { id: Date.now(), text: "What kind of visual would you like to see?", sender: "bot", type: "options" };
+      }
+      
       setMessages((prevMessages) => [
         ...prevMessages,
-        { id: prevMessages.length + 1, text: botResponse, sender: "bot" },
+        botResponse,
       ]);
-      setChatHasVisuals(hasVisual);
+      
       setIsLoading(false);
       scrollToBottom();
     }, 2000);
@@ -62,7 +64,8 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (inputMessage.trim() && !isLoading) {
-      const newUserMessage = { id: messages.length + 1, text: inputMessage, sender: "user" };
+      setSelectedVisual(null); // Clear any open visual when a new message is sent
+      const newUserMessage = { id: Date.now(), text: inputMessage, sender: "user" };
       setMessages((prevMessages) => [
         ...prevMessages,
         newUserMessage,
@@ -72,9 +75,20 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
     }
   };
 
+  const handleOptionSelect = (optionName) => {
+    const newUserMessage = { id: Date.now(), text: `Show me the ${optionName} graph`, sender: "user" };
+    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
+    
+    setSelectedVisual(optionName);
+  };
+
+  const handleCloseVisual = () => {
+    setSelectedVisual(null);
+  };
+
   return (
-    <div className="grid md:grid-cols-3 gap-6 h-full">
-      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 relative transition-all duration-500 ${chatHasVisuals ? 'md:col-span-2' : 'md:col-span-3'}`}>
+    <div className="grid md:grid-cols-5 gap-6 h-full">
+      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 relative transition-all duration-500 ${selectedVisual !== null ? 'md:col-span-3' : 'md:col-span-5'}`}>
         <div className="flex items-center justify-between text-xl font-semibold text-foreground/80 mb-6 pb-4 border-b border-white/10 dark:border-gray-700/50">
           <div className="flex items-center">
             <Sparkles size={24} className="mr-3 text-primary" />
@@ -94,7 +108,7 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
                 key={message.id}
                 className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
               >
-                {message.sender === 'ai' && (
+                {message.sender === 'bot' && (
                     <div className="flex-shrink-0">
                         <NavIcon />
                     </div>
@@ -107,7 +121,8 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
                         : 'bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200'
                     }`}
                 >
-                  <p className={message.sender === 'ai' ? 'font-mono' : 'font-medium'}>{message.text}</p>
+                  <p className={message.sender === 'bot' ? 'font-mono' : 'font-medium'}>{message.text}</p>
+                  {message.type === 'options' && <ChatOptions onSelect={handleOptionSelect} />}
                 </div>
               </div>
             ))
@@ -149,9 +164,9 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
           </div>
         </form>
       </div>
-      {chatHasVisuals && (
-        <div className="md:col-span-1 h-full">
-          <ChatVisuals theme={theme} />
+      {selectedVisual !== null && (
+        <div className="md:col-span-2 h-full">
+            <ChatVisuals theme={theme} selectedVisual={selectedVisual} onClose={handleCloseVisual} />
         </div>
       )}
     </div>
