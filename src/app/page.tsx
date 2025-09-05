@@ -90,6 +90,16 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("researcher");
   const [showWaveAnimation, setShowWaveAnimation] = useState(false);
 
+  // Chat blur & filters state
+  const [filters, setFilters] = useState({
+    startDate: "2023-03-01",
+    endDate: "2023-03-31",
+    region: "Indian Ocean",
+    parameter: "Salinity",
+    floatId: "",
+  });
+  const [isChatting, setIsChatting] = useState(false);
+
   // Chat state
   const [messages, setMessages] = useState<any[]>([]);
   const [chatHasVisuals, setChatHasVisuals] = useState(false);
@@ -101,18 +111,23 @@ export default function Home() {
   const [regionSummary, setRegionSummary] = useState<any | null>(null);
   const [mapTransition, setMapTransition] = useState<MapTransition>("fly");
 
-  const [filters, setFilters] = useState({
-    startDate: "2023-03-01",
-    endDate: "2023-03-31",
-    region: "Indian Ocean",
-    parameter: "Salinity",
-    floatId: "",
-  });
-
   // Keep document theme in sync
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  // Background blur depending on tab/chat state
+  useEffect(() => {
+    const bg = document.getElementById("bg-canvas");
+    if (!bg) return;
+
+    const blurTabs = ["visualize", "compare", "insights"];
+    if (blurTabs.includes(activeTab) || (activeTab === "chat" && isChatting)) {
+      bg.style.filter = "blur(12px) brightness(0.8)";
+    } else {
+      bg.style.filter = "none";
+    }
+  }, [activeTab, isChatting]);
 
   // Mode toggle with animation
   const handleModeToggle = () => {
@@ -123,6 +138,7 @@ export default function Home() {
       setActiveTab("chat");
       setMessages([]);
       setChatHasVisuals(false);
+      setIsChatting(false);
       setShowWaveAnimation(false);
     }, 1200);
   };
@@ -130,6 +146,7 @@ export default function Home() {
   const handleNewChat = () => {
     setMessages([]);
     setChatHasVisuals(false);
+    setIsChatting(false);
   };
 
   // Float selection & filters
@@ -189,6 +206,7 @@ export default function Home() {
               setMessages={setMessages}
               theme={theme}
               handleNewChat={handleNewChat}
+              setIsChatting={setIsChatting}
             />
           );
         case "visualize":
@@ -230,6 +248,7 @@ export default function Home() {
             chatHasVisuals={chatHasVisuals}
             setChatHasVisuals={setChatHasVisuals}
             handleNewChat={handleNewChat}
+            setIsChatting={setIsChatting}
           />
         );
       case "visualize":
@@ -256,16 +275,7 @@ export default function Home() {
       case "about":
         return <AboutTab />;
       default:
-        return (
-          <ChatTab
-            messages={messages}
-            setMessages={setMessages}
-            theme={theme}
-            chatHasVisuals={chatHasVisuals}
-            setChatHasVisuals={setChatHasVisuals}
-            handleNewChat={handleNewChat}
-          />
-        );
+        return null;
     }
   };
 
@@ -299,7 +309,7 @@ export default function Home() {
             />
           </aside>
 
-          {/* Main content - h-full is added and overflow is removed to fix scrolling */}
+          {/* Main content */}
           <section className="flex-1 h-full">{renderTabContent()}</section>
         </div>
       </main>

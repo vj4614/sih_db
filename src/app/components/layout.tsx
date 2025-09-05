@@ -1,32 +1,47 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+"use client";
 import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import BackgroundCanvas from "./components/BackgroundCanvas";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FloatChat - AI-Powered Ocean Data Explorer",
-  description: "An AI-powered conversational interface for ARGO ocean data discovery and visualization.",
+  title: "Chatbot",
+  description: "AI-powered chatbot",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  const pathname = usePathname();
+  const [chatting, setChatting] = useState(false);
+
+  // Sections where blur is always on
+  const alwaysBlur = ["/compare", "/insight", "/visual"];
+
+  useEffect(() => {
+    const bg = document.getElementById("bg-canvas");
+    if (!bg) return;
+
+    if (alwaysBlur.some((p) => pathname.startsWith(p))) {
+      bg.style.filter = "blur(12px) brightness(0.8)";
+    } else if (pathname.startsWith("/newbie") || pathname.startsWith("/researcher")) {
+      bg.style.filter = chatting ? "blur(12px) brightness(0.8)" : "none";
+    } else {
+      bg.style.filter = "none";
+    }
+  }, [pathname, chatting]);
+
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
-      >
+      <body className={inter.className}>
+        <BackgroundCanvas />
+        {/* Provide chatting state to children */}
         {children}
       </body>
     </html>

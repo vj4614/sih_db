@@ -1,3 +1,5 @@
+// orb-20/sih_chatbot/SIH_chatbot-15d088a2026fceda4bbdf988ab4a10cb2fd54cdb/src/app/components/tabs/newbie/NewbieHelper.tsx
+
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from 'react';
@@ -10,7 +12,7 @@ const NavIcon: FC = () => (
     </div>
 );
 
-export default function NewbieHelper({ messages, setMessages, theme, handleNewChat }) {
+export default function NewbieHelper({ messages, setMessages, theme, handleNewChat, setIsChatting }) {
     const [inputMessage, setInputMessage] = useState("");
     const messagesEndRef = useRef(null);
 
@@ -23,6 +25,7 @@ export default function NewbieHelper({ messages, setMessages, theme, handleNewCh
         const userInput = inputMessage.trim();
 
         if (messages.length === 0) {
+            setIsChatting(true); // Set chatting to true on the first message
             setMessages([
                 { id: Date.now(), who: 'ai', text: "Hello! I'm your AI guide to the oceans. Ask me anything about ARGO floats, and I'll help you navigate the data. What are you curious about?" },
                 { id: Date.now() + 1, who: 'user', text: userInput }
