@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Download, Printer } from 'lucide-react';
 
+// FIX: Use dynamic import with ssr: false to prevent server-side rendering errors
+const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
+
 /* Types */
 type FloatSeries = {
   id: string;
