@@ -1,3 +1,4 @@
+// orb-20/sih_chatbot/SIH_chatbot-15d088a2026fceda4bbdf988ab4a10cb2fd54cdb/src/app/page.tsx
 "use client";
 
 import React, { useState, useEffect, FC } from "react";
@@ -34,8 +35,24 @@ export default function Page() {
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [filters, setFilters] = useState({ startDate: "2023-03-01", endDate: "2023-03-31", region: "Indian Ocean", parameter: "Salinity", floatId: "" });
+  const [isChatting, setIsChatting] = useState(false); // New state to control chat blur
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
+  
+  useEffect(() => {
+    const bg = document.getElementById("bg-canvas");
+    if (!bg) return;
+    
+    // Logic for blur based on tab and chat state
+    const blurTabs = ["visualize", "compare", "insights"];
+    if (blurTabs.includes(activeTab) || (activeTab === "chat" && isChatting)) {
+      bg.style.filter = "blur(12px) brightness(0.8)";
+    } else {
+      bg.style.filter = "none";
+    }
+
+  }, [activeTab, isChatting]);
+
 
   const handleModeToggle = () => {
     setShowWaveAnimation(true);
@@ -45,6 +62,7 @@ export default function Page() {
         setActiveTab("chat");
         setMessages([]);
         setChatHasVisuals(false); // Reset visuals on mode switch
+        setIsChatting(false); // Reset chat state on mode switch
         setShowWaveAnimation(false);
     }, 1200);
   };
@@ -52,6 +70,7 @@ export default function Page() {
   const handleNewChat = () => {
     setMessages([]);
     setChatHasVisuals(false);
+    setIsChatting(false); // Reset chat state
   };
 
   const handleFloatSelect = (float) => { setMapTransition('fly'); setRegionSummary(null); setSelectedFloat(float); setMapCenter(float.position); setMapZoom(7); };
@@ -78,7 +97,7 @@ export default function Page() {
   const renderDashboard = () => {
     if (mode === 'newbie') {
       switch (activeTab) {
-        case "chat": return <NewbieHelper messages={messages} setMessages={setMessages} theme={theme} handleNewChat={handleNewChat} />;
+        case "chat": return <NewbieHelper messages={messages} setMessages={setMessages} theme={theme} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />;
         case "visualize": return (
           <NewbieDiagram
             floats={mockFloats} filters={filters} handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}
@@ -94,7 +113,7 @@ export default function Page() {
     }
     return (
       <div className="max-w-7xl mx-auto h-full">
-        {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} chatHasVisuals={chatHasVisuals} setChatHasVisuals={setChatHasVisuals} handleNewChat={handleNewChat} />}
+        {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} chatHasVisuals={chatHasVisuals} setChatHasVisuals={setChatHasVisuals} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />}
         {activeTab === "visualize" && (
           <VisualizeTab
             floats={mockFloats} filters={filters} handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}

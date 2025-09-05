@@ -1,3 +1,4 @@
+// orb-20/sih_chatbot/SIH_chatbot-15d088a2026fceda4bbdf988ab4a10cb2fd54cdb/src/app/components/tabs/ChatTab.tsx
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from "react";
@@ -14,7 +15,7 @@ const NavIcon: FC = () => (
 );
 
 
-export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, setChatHasVisuals, handleNewChat }) {
+export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, setChatHasVisuals, handleNewChat, setIsChatting }) {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -29,6 +30,11 @@ export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, 
 
   const mockApiResponse = (userMessage) => {
     setIsLoading(true);
+    
+    // Set chatting state to true after the first message
+    if (messages.length === 0) {
+      setIsChatting(true);
+    }
 
     setTimeout(() => {
       let botResponse = "Here are the visualizations based on your request.";
