@@ -19,8 +19,7 @@ let selectedFloatIcon: L.Icon;
 // This code block runs only on the client side, after the component has mounted
 if (typeof window !== 'undefined') {
     // Fix for default icon paths
-    // This is necessary because Next.js bundles can break the default icon URLs
-    delete (L.Icon.Default as any).prototype._getIconUrl;
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
         iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
         iconUrl: require("leaflet/dist/images/marker-icon.png"),
@@ -66,7 +65,6 @@ interface MapProps {
 }
 
 export default function Map({ center, zoom, selectedFloatId, onFloatSelect, transition, floats, theme }: MapProps) {
-  // We still need this check here for the main component's render logic
   if (typeof window === "undefined") return null;
 
   const lightTileUrl = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
@@ -76,7 +74,6 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
     <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
       <ChangeView center={center} zoom={zoom} transition={transition} />
       
-      {/* The key prop is crucial here. It forces React to re-render the TileLayer when the theme changes. */}
       <TileLayer
         key={theme} 
         url={theme === 'dark' ? darkTileUrl : lightTileUrl}
@@ -85,7 +82,11 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
 
       {floats.map((f) => (
           <React.Fragment key={f.id}>
-            <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            {/* FIXED: Check that trajectory is a non-empty array before rendering */}
+            {Array.isArray(f.trajectory) && f.trajectory.length > 0 && (
+                <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            )}
+            
             <Marker
               icon={selectedFloatId === f.id ? selectedFloatIcon : floatIcon}
               position={f.position}
@@ -93,8 +94,10 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
             >
               <Popup>
                 <div className="text-sm">
-                    <p className="font-bold text-base">Float #{f.platform_number}</p>
-                    <p><strong>Project:</strong> {f.project_name}</p>
+                    <p className="font-bold text-base">
+                      {f.platform_number ? `Float #${f.platform_number}`: "Event Location"}
+                    </p>
+                    {f.project_name && <p><strong>Project:</strong> {f.project_name}</p>}
                     <p>Click marker to see details.</p>
                 </div>
               </Popup>

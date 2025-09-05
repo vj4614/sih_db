@@ -1,153 +1,241 @@
 "use client";
 
-import React, { useState, useRef, useEffect, FC } from "react";
+import React, { useState, useRef, useEffect, FC, FormEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, SquarePlus } from "lucide-react";
 import ChatVisuals from "../chat/ChatVisuals";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
+import InsightPanel from "@/app/components/InsightPanel";
+import { getInsightForQuery, Insight } from "@/app/services/insightService";
 
-// Define the NavIcon for the bot's avatar
+// NavIcon for bot avatar
 const NavIcon: FC = () => (
-    <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-md">
-      🌊
-    </div>
+  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-md">
+    🌊
+  </div>
 );
 
+interface ChatTabProps {
+  messages?: any[];
+  setMessages?: (msgs: any[]) => void;
+  theme?: string;
+  chatHasVisuals?: boolean;
+  setChatHasVisuals?: (v: boolean) => void;
+  handleNewChat?: () => void;
+  triggerInsight?: (insight: Insight) => void;
+}
 
-export default function ChatTab({ messages, setMessages, theme, chatHasVisuals, setChatHasVisuals, handleNewChat }) {
+export default function ChatTab({
+  messages: externalMessages,
+  setMessages: externalSetMessages,
+  theme = "dark",
+  chatHasVisuals: externalChatHasVisuals,
+  setChatHasVisuals: externalSetChatHasVisuals,
+  handleNewChat,
+  triggerInsight,
+}: ChatTabProps) {
+  // Internal state fallback
+  const [internalMessages, setInternalMessages] = useState<any[]>([]);
+  const messages = externalMessages ?? internalMessages;
+  const setMessages = externalSetMessages ?? setInternalMessages;
+
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
+  const [internalChatHasVisuals, setInternalChatHasVisuals] = useState(false);
+  const chatHasVisuals = externalChatHasVisuals ?? internalChatHasVisuals;
+  const setChatHasVisuals = externalSetChatHasVisuals ?? setInternalChatHasVisuals;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const [activeInsight, setActiveInsight] = useState<Insight | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const getChatResponse = (message: string, insightContext: Insight | null = null) =>
+    new Promise<string>((resolve) => {
+      setTimeout(() => {
+        if (insightContext) {
+          resolve(`Follow-up on "${insightContext.title}": response to "${message}".`);
+        } else {
+          resolve(`This is a mock response to: "${message}".`);
+        }
+      }, 850);
+    });
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
-  const mockApiResponse = (userMessage) => {
-    setIsLoading(true);
-
-    setTimeout(() => {
-      let botResponse = "Here are the visualizations based on your request.";
-      let hasVisual = true;
-      
-      const lowerCaseMessage = userMessage.toLowerCase();
-      if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
-        botResponse = "Hello there! I'm FloatChat AI. How can I assist you with ARGO float data today?";
-        hasVisual = false;
-      } else if (lowerCaseMessage.includes("meaning of life")) {
-        botResponse = "As an AI, I don't ponder philosophical questions, but I can help you find data on ocean life!";
-        hasVisual = false;
-      }
-
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { id: prevMessages.length + 1, text: botResponse, sender: "bot" },
-      ]);
-      setChatHasVisuals(hasVisual);
-      setIsLoading(false);
-      scrollToBottom();
-    }, 2000);
+  const pushMessage = (msg: any) => {
+    setMessages((prev: any[]) => [...(prev ?? []), msg]);
   };
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (inputMessage.trim() && !isLoading) {
-      const newUserMessage = { id: messages.length + 1, text: inputMessage, sender: "user" };
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        newUserMessage,
-      ]);
-      mockApiResponse(inputMessage);
-      setInputMessage("");
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!inputMessage.trim() || isLoading) return;
+
+    const current = inputMessage;
+    const userMessage = { id: (messages?.length ?? 0) + 1, text: current, sender: "user" };
+    pushMessage(userMessage);
+    setIsLoading(true);
+    setInputMessage("");
+
+    if (!activeInsight) {
+      try {
+        const potential = getInsightForQuery(current);
+        if (potential) {
+          if (triggerInsight) triggerInsight(potential);
+          setActiveInsight(potential);
+          setIsLoading(false);
+          setChatHasVisuals(false);
+          return;
+        }
+      } catch (err) {
+        console.error("Insight service error:", err);
+      }
+    }
+
+    const botText = await getChatResponse(current, activeInsight);
+    const botMessage = { id: (messages?.length ?? 0) + 2, text: botText, sender: "bot" };
+    pushMessage(botMessage);
+
+    const lower = current.toLowerCase();
+    const wantsVisual = lower.includes("plot") || lower.includes("visual") || lower.includes("profile") || lower.includes("map") || lower.includes("trajectory");
+    setChatHasVisuals(wantsVisual);
+
+    setIsLoading(false);
+  };
+
+  const closeInsight = () => setActiveInsight(null);
+
+  const onNewChat = () => {
+    if (handleNewChat) handleNewChat();
+    else {
+      setMessages([]);
+      setChatHasVisuals(false);
+      setActiveInsight(null);
     }
   };
 
   return (
-    <div className="grid md:grid-cols-3 gap-6 h-full">
-      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 relative transition-all duration-500 ${chatHasVisuals ? 'md:col-span-2' : 'md:col-span-3'}`}>
-        <div className="flex items-center justify-between text-xl font-semibold text-foreground/80 mb-6 pb-4 border-b border-white/10 dark:border-gray-700/50">
-          <div className="flex items-center">
-            <Sparkles size={24} className="mr-3 text-primary" />
-            FloatChat AI
-          </div>
-          <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted/50 transition-colors" title="New Chat">
-            <SquarePlus size={20} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
-          {messages.length === 0 && !isLoading ? (
-            <ChatGreeting />
-          ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
-              >
-                {message.sender === 'ai' && (
-                    <div className="flex-shrink-0">
-                        <NavIcon />
-                    </div>
-                )}
-                <div
-                  className={`max-w-[85%] px-5 py-3 rounded-xl text-base relative group
-                    ${
-                      message.sender === "user"
-                        ? 'bg-gradient-to-br from-teal-400 to-cyan-500 text-white'
-                        : 'bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200'
-                    }`}
-                >
-                  <p className={message.sender === 'ai' ? 'font-mono' : 'font-medium'}>{message.text}</p>
-                </div>
-              </div>
-            ))
-          )}
-          {isLoading && (
-            <div className="flex items-start gap-3 justify-start animate-fade-in">
-                <div className="flex-shrink-0">
-                    <NavIcon />
-                </div>
-                <div className={`max-w-[85%] px-5 py-3 rounded-xl text-base relative group bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200`}>
-                    <OceanLoadingAnimation />
-                </div>
+    <div className="h-full w-full grid grid-cols-1 lg:grid-cols-3 lg:gap-6">
+      {/* CHAT PANEL */}
+      <motion.div
+        layout
+        className={activeInsight ? "lg:col-span-1" : "lg:col-span-3"}
+        transition={{ duration: 0.5, ease: "easeInOut" }}
+      >
+        {/*
+          PROFESSIONAL LAYOUT FIX:
+          - The outer div is a grid with 3 rows: [header, messages, form].
+          - grid-rows-[auto_1fr_auto] makes the header and form take only the space they need.
+          - The message list (1fr) takes all remaining space, and `overflow-y-auto` makes it scrollable.
+        */}
+        <div className="grid grid-rows-[auto_1fr_auto] h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-4 sm:p-6">
+          
+          {/* Header (First Row) */}
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10 dark:border-gray-700/50">
+            <div className="flex items-center gap-3 text-lg font-semibold text-foreground/90">
+              <Sparkles size={20} className="text-primary" />
+              FloatChat AI
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <form onSubmit={handleSendMessage} className="mt-6 pt-4 border-t border-white/10 dark:border-gray-700/50 flex items-center gap-4">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask about ocean data..."
-              className="w-full pl-5 pr-12 py-3 bg-background/50 border border-white/10 dark:border-gray-700/50 rounded-full text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-md placeholder-muted-foreground"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-200 transform ${
-                inputMessage.trim() && !isLoading
-                  ? "bg-primary text-primary-foreground hover:scale-110"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-              }`}
-              disabled={!inputMessage.trim() || isLoading}
-            >
-              <Send size={20} />
+            <button onClick={onNewChat} className="p-2 rounded-lg hover:bg-muted/50 transition-colors" title="New Chat">
+              <SquarePlus size={18} />
             </button>
           </div>
-        </form>
-      </div>
-      {chatHasVisuals && (
-        <div className="md:col-span-1 h-full">
-          <ChatVisuals theme={theme} />
+
+          {/* Scrollable Message List (Second Row) */}
+          <div className="overflow-y-auto pr-2 custom-scrollbar space-y-4">
+            {(!messages || messages.length === 0) && !isLoading ? (
+              <ChatGreeting />
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id ?? message.text}
+                  className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
+                >
+                  {message.sender !== "user" && (
+                    <div className="flex-shrink-0">
+                      <NavIcon />
+                    </div>
+                  )}
+                  <div
+                    // WORD WRAP FIX: 'break-words' class ensures long text without spaces will wrap.
+                    className={`max-w-[85%] px-4 py-3 rounded-xl text-base relative break-words ${
+                      message.sender === "user"
+                        ? "bg-gradient-to-br from-teal-400 to-cyan-500 text-white"
+                        : "bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200"
+                    }`}
+                  >
+                    <p className={message.sender !== "user" ? "font-mono" : "font-medium"}>{message.text}</p>
+                  </div>
+                </div>
+              ))
+            )}
+            {isLoading && (
+              <div className="flex items-start gap-3 justify-start animate-fade-in">
+                <div className="flex-shrink-0">
+                  <NavIcon />
+                </div>
+                <div className="max-w-[85%] px-4 py-3 rounded-xl text-base bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200">
+                  <OceanLoadingAnimation />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Form (Third Row) */}
+          <form onSubmit={handleSubmit} className="mt-4 pt-3 border-t border-white/10 dark:border-gray-700/50 flex items-center gap-3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder={activeInsight ? "Ask a follow-up about the insight..." : "Ask about ocean data..."}
+                className="w-full pl-4 pr-12 py-2 bg-background/50 border border-white/10 dark:border-gray-700/50 rounded-full text-md focus:outline-none focus:ring-2 focus:ring-primary transition-shadow duration-150"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-transform duration-150 ${
+                  inputMessage.trim() && !isLoading ? "bg-primary text-primary-foreground hover:scale-105" : "bg-muted text-muted-foreground cursor-not-allowed"
+                }`}
+                disabled={!inputMessage.trim() || isLoading}
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </motion.div>
+
+      {/* INSIGHT & VISUALS PANEL */}
+      <AnimatePresence>
+        {activeInsight ? (
+          <motion.div
+            layout
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="hidden lg:col-span-2 lg:block"
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          >
+            <InsightPanel insight={activeInsight} onClose={closeInsight} />
+          </motion.div>
+        ) : (
+          chatHasVisuals && (
+            <motion.div
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="lg:col-span-2 hidden lg:block"
+              transition={{ duration: 0.3 }}
+            >
+              <ChatVisuals theme={theme} />
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
     </div>
   );
 }
