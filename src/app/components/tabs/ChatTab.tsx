@@ -1,30 +1,29 @@
+// src/app/components/tabs/ChatTab.tsx
+
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from "react";
 import dynamic from "next/dynamic";
-import { Send, Sparkles, SquarePlus, X, Route } from "lucide-react";
+import { Send, Sparkles, SquarePlus } from "lucide-react";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
-import ChatOptions from "../chat/ChatOptions";
-import ChatDataOptions from "../chat/ChatDataOptions";
+import { AIMessage, HistoryItem } from "@/app/types";
+import SuggestedPrompts from "../chat/SuggestedPrompts"; // Import the new component
 
-// Dynamically import client-side-only components
 const ChatVisuals = dynamic(() => import("../chat/ChatVisuals"), { ssr: false });
-const ChatDataViewer = dynamic(() => import("../chat/ChatDataViewer"), { ssr: false });
 
-// Define the NavIcon for the bot's avatar
 const NavIcon: FC = () => (
     <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-md">
       🌊
     </div>
 );
 
-
-export default function ChatTab({ messages, setMessages, theme, selectedVisual, setSelectedVisual, handleNewChat, setIsChatting, floats, mapCenter, mapZoom, onFloatSelect, selectedFloat }) {
+export default function ChatTab({ messages, setMessages, theme, handleNewChat, setIsChatting }) {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedDataType, setSelectedDataType] = useState<string | null>(null);
+  const [activeGraphData, setActiveGraphData] = useState(null);
   const messagesEndRef = useRef(null);
+  const formRef = useRef<HTMLFormElement>(null); // Ref for the form
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,112 +31,111 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, selectedVisual, selectedDataType]);
+  }, [messages, activeGraphData]);
 
-  const mockApiResponse = (userMessage) => {
+  const getGeminiResponse = async (userMessage: string) => {
     setIsLoading(true);
-    
+    setActiveGraphData(null); 
+
     if (messages.length === 0) {
       setIsChatting(true);
     }
 
-    setTimeout(() => {
-      const lowerCaseMessage = userMessage.toLowerCase();
-      
-      let botResponse = { id: Date.now(), text: "I'm sorry, I can't provide that information right now. Please ask about float data or visuals.", sender: "bot", type: "text" };
+    const botMessageId = crypto.randomUUID();
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { id: botMessageId, text: "", sender: "bot", graphData: null },
+    ]);
+    
+    const history: HistoryItem[] = messages
+      .slice(-6) 
+      .map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      }));
 
-      if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
-        botResponse = { id: Date.now(), text: "Hello there! I'm FloatChat AI. How can I assist you with ARGO float data today?", sender: "bot", type: "text" };
-        setSelectedVisual(null);
-        setSelectedDataType(null);
-      } else if (lowerCaseMessage.includes("meaning of life")) {
-        botResponse = { id: Date.now(), text: "As an AI, I don't ponder philosophical questions, but I can help you find data on ocean life!", sender: "bot", type: "text" };
-        setSelectedVisual(null);
-        setSelectedDataType(null);
-      } else if (lowerCaseMessage.includes("graph") || lowerCaseMessage.includes("show") || lowerCaseMessage.includes("visuals")) {
-        botResponse = { id: Date.now(), text: "What kind of visual would you like to see?", sender: "bot", type: "options" };
-        setSelectedDataType(null);
-      } else if (lowerCaseMessage.includes("data") || lowerCaseMessage.includes("raw data")) {
-        botResponse = { id: Date.now(), text: "Here are some data options:", sender: "bot", type: "data-options" };
-        setSelectedVisual(null);
-      } else if (lowerCaseMessage.includes("trajectory") || lowerCaseMessage.includes("path")) {
-          botResponse = { id: Date.now(), text: "I can show you a map of float trajectories. Would you like to see it?", sender: "bot", type: "map-options" };
-          setSelectedVisual(null);
-          setSelectedDataType(null);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessage, history }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullResponse += decoder.decode(value, { stream: true });
+
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === botMessageId ? { ...msg, text: fullResponse } : msg
+          )
+        );
       }
       
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        botResponse,
-      ]);
+      const data: AIMessage = JSON.parse(fullResponse);
       
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === botMessageId ? { ...msg, text: data.text, graphData: data.graphData || null } : msg
+        )
+      );
+
+      if (data.graphData) {
+        setActiveGraphData(data.graphData);
+      }
+
+    } catch (error) {
+      console.error("Failed to get Gemini response:", error);
+      const errorResponse = { id: botMessageId, text: "I'm sorry, an error occurred. Please try again.", sender: "bot" };
+      setMessages((prevMessages) => 
+        prevMessages.map(msg => msg.id === botMessageId ? errorResponse : msg)
+      );
+    } finally {
       setIsLoading(false);
-      scrollToBottom();
-    }, 2000);
+    }
   };
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (inputMessage.trim() && !isLoading) {
-      setSelectedVisual(null);
-      setSelectedDataType(null);
-      const newUserMessage = { id: Date.now(), text: inputMessage, sender: "user" };
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        newUserMessage,
-      ]);
-      mockApiResponse(inputMessage);
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const messageToSend = inputMessage.trim();
+    if (messageToSend && !isLoading) {
+      const newUserMessage = { id: crypto.randomUUID(), text: messageToSend, sender: "user" };
+      setMessages((prevMessages) => [...prevMessages, newUserMessage]);
+      getGeminiResponse(messageToSend);
       setInputMessage("");
     }
   };
-
-  const handleGraphOptionSelect = (optionName) => {
-    const newUserMessage = { id: Date.now(), text: `Show me the ${optionName} graph`, sender: "user" };
-    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-    
-    setSelectedVisual(optionName);
-    setSelectedDataType(null);
+  
+  // New handler for suggested prompts
+  const handleSuggestionClick = (prompt: string) => {
+    setInputMessage(prompt);
+    // Use a timeout to allow the input state to update before submitting
+    setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 0);
   };
   
-  const handleMapOptionSelect = (optionName) => {
-    const newUserMessage = { id: Date.now(), text: `Show me the ${optionName}`, sender: "user" };
-    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-    
-    // Changed this to a new state to distinguish it from the static graph
-    setSelectedVisual("Animated Trajectory");
-    setSelectedDataType(null);
-  };
-
-  const handleDataOptionSelect = (dataType) => {
-      const newUserMessage = { id: Date.now(), text: `Show me the ${dataType} data`, sender: "user" };
-      setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-      setSelectedDataType(dataType);
-      setSelectedVisual(null);
-  };
+  const handleNewChatWithReset = () => {
+    handleNewChat();
+    setActiveGraphData(null);
+  }
 
   const handleClosePanel = () => {
-    setSelectedVisual(null);
-    setSelectedDataType(null);
+    setActiveGraphData(null);
   };
 
-  // Fixed handleNewChat to also reset the selected data type
-  const handleNewChatWithReset = () => {
-    handleNewChat(); // Call the original new chat function
-    setSelectedVisual(null);
-    setSelectedDataType(null);
-  };
-
-  const isPanelOpen = selectedVisual !== null || selectedDataType !== null;
-
-  const renderSidePanel = () => {
-    if (selectedVisual) {
-      return <ChatVisuals theme={theme} selectedVisual={selectedVisual} onClose={handleClosePanel} floats={floats} mapCenter={mapCenter} mapZoom={mapZoom} onFloatSelect={onFloatSelect} selectedFloat={selectedFloat} />;
-    }
-    if (selectedDataType) {
-      return <ChatDataViewer dataType={selectedDataType} onClose={handleClosePanel} />;
-    }
-    return null;
-  };
+  const isPanelOpen = activeGraphData !== null;
 
   return (
     <div className="grid md:grid-cols-5 gap-6 h-full">
@@ -154,7 +152,10 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
 
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
           {messages.length === 0 && !isLoading ? (
-            <ChatGreeting />
+            <>
+              <ChatGreeting />
+              <SuggestedPrompts onPromptClick={handleSuggestionClick} />
+            </>
           ) : (
             messages.map((message) => (
               <div
@@ -175,23 +176,12 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
                     }`}
                 >
                   <p className={message.sender === 'bot' ? 'font-mono' : 'font-medium'}>{message.text}</p>
-                  {message.type === 'options' && <ChatOptions onSelect={handleGraphOptionSelect} />}
-                  {message.type === 'data-options' && <ChatDataOptions onSelect={handleDataOptionSelect} />}
-                  {message.type === 'map-options' && (
-                    <div className="flex flex-col space-y-2 p-4 bg-muted/20 rounded-xl mt-4">
-                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">Map options:</h4>
-                        <button onClick={() => handleMapOptionSelect("water trajectory")} className="flex items-center gap-3 px-4 py-3 bg-card rounded-lg hover:bg-primary/10 transition-colors shadow-md text-foreground text-left">
-                            <Route size={20} className="text-primary" />
-                            <span className="font-medium">Show water trajectory</span>
-                        </button>
-                    </div>
-                  )}
                 </div>
               </div>
             ))
           )}
-          {isLoading && (
-            <div className="flex items-start gap-3 justify-start animate-fade-in">
+          {isLoading && messages.length > 0 && messages[messages.length - 1].sender !== 'bot' && (
+             <div className="flex items-start gap-3 justify-start animate-fade-in">
                 <div className="flex-shrink-0">
                     <NavIcon />
                 </div>
@@ -203,13 +193,13 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSendMessage} className="mt-6 pt-4 border-t border-white/10 dark:border-gray-700/50 flex items-center gap-4">
+        <form ref={formRef} onSubmit={handleSendMessage} className="mt-6 pt-4 border-t border-white/10 dark:border-gray-700/50 flex items-center gap-4">
           <div className="relative flex-1">
             <input
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask about ocean data..."
+              placeholder="Ask for data or a graph..."
               className="w-full pl-5 pr-12 py-3 bg-background/50 border border-white/10 dark:border-gray-700/50 rounded-full text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-md placeholder-muted-foreground"
               disabled={isLoading}
             />
@@ -229,7 +219,11 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
       </div>
       {isPanelOpen && (
         <div className="md:col-span-2 h-full">
-            {renderSidePanel()}
+          <ChatVisuals
+            theme={theme}
+            graphData={activeGraphData}
+            onClose={handleClosePanel}
+          />
         </div>
       )}
     </div>

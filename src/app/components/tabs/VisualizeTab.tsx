@@ -1,196 +1,137 @@
+// src/app/components/tabs/VisualizeTab.tsx
+
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import dynamic from "next/dynamic";
-import { Search } from 'lucide-react';
-import FilterGroup from "../ui/FilterGroup";
+import { Sparkles, Search, Loader, SlidersHorizontal } from 'lucide-react';
 import SidePanel from "../ui/SidePanel";
+import FilterGroup from "../ui/FilterGroup";
 
 const Map = dynamic(() => import("../ui/Map"), {
   ssr: false,
   loading: () => <div className="flex items-center justify-center h-full"><p>Loading map...</p></div>,
 });
 
-export default function VisualizeTab({ floats, filters, handleFilterChange, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) {
-    const [suggestions, setSuggestions] = useState<any[]>([]);
+export default function VisualizeTab({ floats, filters, setFilters, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) {
+    const [command, setCommand] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [showManualFilters, setShowManualFilters] = useState(false);
 
-    const handleQuickSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const value = e.target.value;
-        const today = new Date();
-        const endDate = today.toISOString().split('T')[0];
-        let startDate = filters.startDate;
+    const handleCommandSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!command.trim()) return;
 
-        if (value === 'last-7-days') {
-            const sevenDaysAgo = new Date(today);
-            sevenDaysAgo.setDate(today.getDate() - 7);
-            startDate = sevenDaysAgo.toISOString().split('T')[0];
-        } else if (value === 'last-30-days') {
-            const thirtyDaysAgo = new Date(today);
-            thirtyDaysAgo.setDate(today.getDate() - 30);
-            startDate = thirtyDaysAgo.toISOString().split('T')[0];
-        }
+        setIsLoading(true);
+        setError(null);
 
-        handleFilterChange({ target: { name: 'startDate', value: startDate } });
-        handleFilterChange({ target: { name: 'endDate', value: endDate } });
-    };
-    
-    // In-memory filter logic to simulate a real-world scenario
-    const filteredFloats = useMemo(() => {
-        const { region, startDate, endDate, data_mode, direction, cycle_number, project_name } = filters;
-        
-        // Mock data to associate floats with regions and dates
-        const mockRegionalData = {
-          "Indian Ocean": [98765, 12345],
-          "North Atlantic": [54321],
-          "Southern Ocean": [],
-          "Equatorial Region": [],
-        };
-        const regionFloats = mockRegionalData[region] || [];
-        
-        const filteredByRegion = floats.filter(float => 
-            regionFloats.includes(float.platform_number)
-        );
+        try {
+            const response = await fetch('/api/map-command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command }),
+            });
 
-        // This is a simple mock for date filtering, in a real app this would query a database
-        const filteredByDate = filteredByRegion.filter(float => {
-            const floatDate = new Date("2023-03-15"); // Mock a fixed date for demonstration
-            return floatDate >= new Date(startDate) && floatDate <= new Date(endDate);
-        });
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || "Failed to parse command.");
+            }
 
-        return filteredByDate;
-    }, [floats, filters]);
-    
-    const handleFloatIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { value } = e.target;
-        handleFilterChange(e);
-        
-        if (value.length > 0) {
-            const matchingFloats = filteredFloats.filter(float => 
-                float.platform_number.toString().includes(value)
-            );
-            setSuggestions(matchingFloats);
-        } else {
-            setSuggestions([]);
+            const parsedFilters = await response.json();
+            setFilters(prev => ({ ...prev, ...parsedFilters }));
+
+            setTimeout(() => {
+                handleApplyFilters();
+            }, 0);
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
         }
     };
-    
-    const handleSuggestionClick = (floatId: string) => {
-      handleFilterChange({ target: { name: 'floatId', value: floatId } });
-      setSuggestions([]);
-    };
 
+    const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({...prev, [name]: value}));
+    };
+    
     return (
-        <section className="grid md:grid-cols-4 gap-6 h-[calc(100vh-120px)]">
-          <aside className="col-span-1 bg-card rounded-xl shadow-lg p-6 flex flex-col space-y-6">
-            <h3 className="text-xl font-bold border-b pb-3">Observation Lens</h3>
-            <FilterGroup label="Date Range" animationDelay="0s">
-                <div className="space-y-4">
-                    <select onChange={handleQuickSelectChange} className="filter-input">
-                        <option value="">Quick Select</option>
-                        <option value="last-7-days">Last 7 Days</option>
-                        <option value="last-30-days">Last 30 Days</option>
-                    </select>
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="text-sm text-muted-foreground block mb-2">Start Date</label>
-                            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="filter-input w-full" />
-                        </div>
-                        <div className="flex-1">
-                            <label className="text-sm text-muted-foreground block mb-2">End Date</label>
-                            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="filter-input w-full" />
-                        </div>
+        <section className="h-[calc(100vh-120px)] flex flex-col gap-4">
+            {/* AI Command Bar */}
+            <div className="relative z-10">
+                <form onSubmit={handleCommandSubmit} className="relative">
+                     <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                    </div>
+                    <input 
+                        type="text"
+                        value={command}
+                        onChange={(e) => setCommand(e.target.value)}
+                        placeholder="AI Command: e.g., Show INCOIS floats in the Arabian Sea from June 2022..."
+                        className="w-full pl-12 pr-28 py-3 bg-card/80 backdrop-blur-md border border-primary/20 rounded-full shadow-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                        disabled={isLoading}
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                         <button type="button" onClick={() => setShowManualFilters(!showManualFilters)} className="p-2 mr-1 rounded-full hover:bg-muted/50 transition-colors" title="Toggle Manual Filters">
+                            <SlidersHorizontal className="h-5 w-5 text-muted-foreground" />
+                        </button>
+                        <button type="submit" className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:bg-muted" disabled={isLoading}>
+                            {isLoading ? <Loader className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                        </button>
+                    </div>
+                </form>
+                {error && <p className="text-center text-red-500 text-sm mt-2 bg-card/80 p-2 rounded-md">{error}</p>}
+            </div>
+
+            {/* Manual Filters (Collapsible) */}
+            {showManualFilters && (
+                 <div className="bg-card/80 backdrop-blur-md rounded-xl shadow-lg p-4 border border-white/10 dark:border-gray-800/20">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <FilterGroup label="Start Date">
+                            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="filter-input" />
+                        </FilterGroup>
+                        <FilterGroup label="End Date">
+                            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="filter-input" />
+                        </FilterGroup>
+                         <FilterGroup label="Region">
+                            <select name="region" value={filters.region} onChange={handleFilterChange} className="filter-input">
+                                <option value="">All Regions</option>
+                                <option>Arabian Sea</option>
+                                <option>Bay of Bengal</option>
+                                <option>Equatorial Indian Ocean</option>
+                            </select>
+                        </FilterGroup>
+                        <FilterGroup label="Project">
+                             <select name="project_name" value={filters.project_name} onChange={handleFilterChange} className="filter-input">
+                                <option value="">All Projects</option>
+                                <option>INCOIS</option>
+                                <option>NOAA</option>
+                                <option>CSIRO</option>
+                                <option>JAMSTEC</option>
+                            </select>
+                        </FilterGroup>
+                        <button onClick={() => handleApplyFilters()} className="w-full h-full py-2 bg-primary text-primary-foreground rounded-lg font-semibold self-end hover:bg-primary/90 transition-colors">
+                            Apply Manual Filters
+                        </button>
                     </div>
                 </div>
-            </FilterGroup>
-            <FilterGroup label="Region" animationDelay="0.1s">
-              <select name="region" value={filters.region} onChange={handleFilterChange} className="filter-input">
-                <option value="">Select</option>
-                <option>Indian Ocean</option>
-                <option>Equatorial Region</option>
-                <option>North Atlantic</option>
-                <option>Southern Ocean</option>
-              </select>
-            </FilterGroup>
-            <FilterGroup label="Parameter" animationDelay="0.2s">
-              <select name="parameter" value={filters.parameter} onChange={handleFilterChange} className="filter-input">
-                <option value="">Select</option>
-                <option>Salinity</option>
-                <option>Temperature</option>
-                <option>Pressure</option>
-              </select>
-            </FilterGroup>
-            <FilterGroup label="Data Mode" animationDelay="0.3s">
-                <select name="data_mode" value={filters.data_mode} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option value="R">Real-time (R)</option>
-                    <option value="D">Delayed-mode (D)</option>
-                </select>
-            </FilterGroup>
-            <FilterGroup label="Profiling Direction" animationDelay="0.4s">
-                <select name="direction" value={filters.direction} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option value="A">Ascending (A)</option>
-                    <option value="D">Descending (D)</option>
-                </select>
-            </FilterGroup>
-            <FilterGroup label="Cycle Number" animationDelay="0.5s">
-                <input 
-                    type="text" 
-                    name="cycle_number" 
-                    placeholder="e.g., 15" 
-                    value={filters.cycle_number} 
-                    onChange={handleFilterChange} 
-                    className="filter-input" 
+            )}
+
+            {/* Map Area */}
+            <div className="relative col-span-3 bg-card rounded-xl shadow-lg overflow-hidden flex-1">
+                <Map 
+                    center={mapCenter} 
+                    zoom={mapZoom} 
+                    selectedFloatId={selectedFloat?.id} 
+                    onFloatSelect={onFloatSelect} 
+                    transition={mapTransition} 
+                    floats={floats} 
+                    theme={theme}
                 />
-            </FilterGroup>
-            <FilterGroup label="Project Name" animationDelay="0.6s">
-                <select name="project_name" value={filters.project_name} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option>INCOIS</option>
-                    <option>NOAA</option>
-                    <option>CSIRO</option>
-                </select>
-            </FilterGroup>
-            <FilterGroup label="Float ID" animationDelay="0.7s">
-                <div className="relative">
-                    <div className="relative">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input 
-                            type="text" 
-                            name="floatId" 
-                            placeholder="Search by ID..." 
-                            value={filters.floatId} 
-                            onChange={handleFloatIdChange} 
-                            className="filter-input pl-10" 
-                        />
-                    </div>
-                    {suggestions.length > 0 && (
-                        <ul className="absolute z-10 w-full bg-card border border-muted-foreground/20 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
-                            {suggestions.map((float) => (
-                                <li 
-                                    key={float.id} 
-                                    onClick={() => handleSuggestionClick(float.platform_number.toString())}
-                                    className="p-3 hover:bg-muted/50 cursor-pointer text-sm"
-                                >
-                                    {float.platform_number}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-            </FilterGroup>
-            <button 
-              onClick={handleApplyFilters} 
-              className="mt-auto w-full py-3 bg-primary text-primary-foreground rounded-lg font-semibold 
-                         hover:bg-primary/90 transition-all transform active:scale-95 active:bg-teal shadow-lg"
-            >
-              Apply Filters
-            </button>
-          </aside>
-          <div className="col-span-3 bg-card rounded-xl shadow-lg overflow-hidden relative">
-            <Map center={mapCenter} zoom={mapZoom} selectedFloatId={selectedFloat?.id} onFloatSelect={onFloatSelect} transition={mapTransition} floats={floats} theme={theme}/>
-            <SidePanel float={selectedFloat} summary={regionSummary} onClose={onDetailClose} theme={theme} />
-          </div>
+                <SidePanel float={selectedFloat} summary={regionSummary} onClose={onDetailClose} theme={theme} />
+            </div>
         </section>
     );
 };

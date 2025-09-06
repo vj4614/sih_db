@@ -1,3 +1,4 @@
+// src/app/types.ts
 import { FC } from "react";
 import { MessageSquare, BarChart2, GitCompare, Zap, Info, User, GraduationCap } from 'lucide-react';
 
@@ -26,3 +27,24 @@ export const NEWBIE_TABS: TabConfig[] = [
     { id: "insights", label: "Info", icon: Zap },
     { id: "about", label: "About", icon: Info },
 ];
+
+// Structure for the AI's JSON response
+export interface AIMessage {
+  text: string;
+  graphData?: {
+    title: string;
+    xAxisLabel: string;
+    yAxisLabel: string;
+    data: Array<{
+      name: string;
+      x: number[];
+      y: number[];
+    }>;
+  } | null;
+}
+
+// NEW: Structure for sending history to the API
+export interface HistoryItem {
+    role: 'user' | 'model';
+    parts: { text: string }[];
+}
