@@ -1,25 +1,34 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Search } from 'lucide-react';
 import FilterGroup from "../../ui/FilterGroup";
 import SidePanel from "../../ui/SidePanel";
-import { mockFloats } from "@/app/page";
+import Select from 'react-select';
+import { customSelectStyles } from '../../ui/selectStyles';
 
 const Map = dynamic(() => import("../../ui/Map"), {
   ssr: false,
   loading: () => <div className="flex items-center justify-center h-full"><p>Loading map...</p></div>,
 });
 
+const parameterOptions = [
+    { value: "Salinity", label: "Salinity" },
+    { value: "Temperature", label: "Temperature" },
+    { value: "Pressure", label: "Pressure" },
+];
+
 export default function NewbieDiagram({ floats, filters, handleFilterChange, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) {
     const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
     
-    // In-memory filter logic to simulate a real-world scenario
     const filteredFloats = useMemo(() => {
-        const { region, startDate, endDate, data_mode, direction, cycle_number, project_name } = filters;
-        
-        // Mock data to associate floats with regions and dates
+        const { region } = filters;
         const mockRegionalData = {
           "Indian Ocean": [98765, 12345],
           "North Atlantic": [54321],
@@ -28,17 +37,9 @@ export default function NewbieDiagram({ floats, filters, handleFilterChange, han
         };
         const regionFloats = mockRegionalData[region] || [];
         
-        const filteredByRegion = floats.filter(float => 
+        return floats.filter(float => 
             regionFloats.includes(float.platform_number)
         );
-
-        // This is a simple mock for date filtering, in a real app this would query a database
-        const filteredByDate = filteredByRegion.filter(float => {
-            const floatDate = new Date("2023-03-15"); // Mock a fixed date for demonstration
-            return floatDate >= new Date(startDate) && floatDate <= new Date(endDate);
-        });
-
-        return filteredByDate;
     }, [floats, filters]);
 
     const handleFloatIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,17 +66,22 @@ export default function NewbieDiagram({ floats, filters, handleFilterChange, han
           <aside className="col-span-1 bg-card rounded-xl shadow-lg p-6 flex flex-col space-y-6">
             <h3 className="text-xl font-bold border-b pb-3">Dive Parameters</h3>
             <FilterGroup label="Parameter" animationDelay="0s">
-                <select name="parameter" value={filters.parameter} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option>Salinity</option>
-                    <option>Temperature</option>
-                    <option>Pressure</option>
-                </select>
+                <Select
+                    menuPortalTarget={isMounted ? document.body : null}
+                    menuPosition="fixed"
+                    name="parameter"
+                    options={parameterOptions}
+                    styles={customSelectStyles}
+                    placeholder="Select"
+                    isClearable
+                    onChange={handleFilterChange}
+                    value={parameterOptions.find(o => o.value === filters.parameter) || null}
+                />
             </FilterGroup>
             <FilterGroup label="Float ID" animationDelay="0.1s">
                 <div className="relative">
                     <div className="relative">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
                         <input 
                             type="text" 
                             name="floatId" 
@@ -86,7 +92,7 @@ export default function NewbieDiagram({ floats, filters, handleFilterChange, han
                         />
                     </div>
                     {suggestions.length > 0 && (
-                        <ul className="absolute z-10 w-full bg-card border border-muted-foreground/20 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
+                        <ul className="absolute z-20 w-full bg-card border border-muted-foreground/20 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
                             {suggestions.map((float) => (
                                 <li 
                                     key={float.id} 

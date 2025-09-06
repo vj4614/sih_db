@@ -287,11 +287,9 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [messages, setMessages] = useState([]);
   const [selectedVisual, setSelectedVisual] = useState<string | null>(null);
-  // Adjusted map center and zoom for the new trajectories
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
   const [mapZoom, setMapZoom] = useState(4);
   const [selectedFloat, setSelectedFloat] = useState(null);
-  // Using an array to hold floats for the region summary
   const [regionSummary, setRegionSummary] = useState<{ region: string, floats: any[] } | null>(null);
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -315,7 +313,6 @@ export default function Page() {
     const bg = document.getElementById("bg-canvas");
     if (!bg) return;
     
-    // Logic for blur based on tab and chat state
     const blurTabs = ["visualize", "compare", "insights"];
     if (blurTabs.includes(activeTab) || (activeTab === "chat" && (isChatting || selectedVisual !== null))) {
       bg.style.filter = "blur(12px) brightness(0.8)";
@@ -324,7 +321,6 @@ export default function Page() {
     }
   }, [activeTab, isChatting, selectedVisual]);
 
-  // Effect to control sidebar state based on selectedVisual
   useEffect(() => {
     if (selectedVisual !== null) {
         setIsSidebarOpen(false);
@@ -333,19 +329,18 @@ export default function Page() {
     }
   }, [selectedVisual]);
   
-  // Effect to hide the wave animation after 5 seconds
   useEffect(() => {
     if (showWaveAnimation) {
       const timer = setTimeout(() => {
         setShowWaveAnimation(false);
-      }, 5000); // 5 seconds, matching the CSS animation duration
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [showWaveAnimation]);
 
 
   const handleModeToggle = () => {
-    setShowWaveAnimation(true); // Trigger the animation
+    setShowWaveAnimation(true);
     const isSwitchingToNewbie = mode === "researcher";
     setMode(isSwitchingToNewbie ? "newbie" : "researcher");
     setActiveTab("chat");
@@ -361,7 +356,18 @@ export default function Page() {
   };
 
   const handleFloatSelect = (float) => { setMapTransition('fly'); setRegionSummary(null); setSelectedFloat(float); setMapCenter(float.position); setMapZoom(7); };
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { const { name, value } = e.target; setFilters((prev) => ({ ...prev, [name]: value })); };
+  
+  // Updated handler for both regular inputs and react-select
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement> | null, actionMeta?: any) => {
+    if (actionMeta && actionMeta.name) { // This is for react-select
+      const { name } = actionMeta;
+      const value = e ? (e as any).value : "";
+      setFilters((prev) => ({ ...prev, [name]: value }));
+    } else if (e) { // This is for regular inputs
+      const { name, value } = e.target;
+      setFilters((prev) => ({ ...prev, [name]: value }));
+    }
+  };
   
   const handleApplyFilters = () => {
     const targetFloat = mockFloats.find(f => f.platform_number.toString() === filters.floatId);
@@ -387,11 +393,10 @@ export default function Page() {
         setMapCenter(selectedRegionData.center);
         setMapZoom(selectedRegionData.zoom);
       } else {
-        setMapCenter([0, 80]); // Default to Indian Ocean if region is not found
+        setMapCenter([0, 80]);
         setMapZoom(3);
       }
       
-      // Pass all mockFloats to the map component, regardless of region filter
       setRegionSummary({ region: filters.region, floats: mockFloats });
     }
   };
@@ -413,7 +418,6 @@ export default function Page() {
         case "visualize":
           return (
             <NewbieDiagram
-              // Pass the full mockFloats array here
               floats={mockFloats}
               filters={filters}
               handleFilterChange={handleFilterChange}
@@ -443,7 +447,6 @@ export default function Page() {
         {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} selectedVisual={selectedVisual} setSelectedVisual={setSelectedVisual} handleNewChat={handleNewChat} setIsChatting={setIsChatting} floats={chatFloats} mapCenter={mapCenter} mapZoom={mapZoom} onFloatSelect={handleFloatSelect} selectedFloat={selectedFloat}/>}
         {activeTab === "visualize" && (
           <VisualizeTab
-            // Pass the full mockFloats array here
             floats={mockFloats}
             filters={filters}
             handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}

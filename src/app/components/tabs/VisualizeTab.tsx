@@ -1,18 +1,50 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Search } from 'lucide-react';
 import FilterGroup from "../ui/FilterGroup";
 import SidePanel from "../ui/SidePanel";
+import Select from 'react-select';
+import { customSelectStyles } from '../ui/selectStyles';
 
 const Map = dynamic(() => import("../ui/Map"), {
   ssr: false,
   loading: () => <div className="flex items-center justify-center h-full"><p>Loading map...</p></div>,
 });
 
+const regionOptions = [
+    { value: "Indian Ocean", label: "Indian Ocean" },
+    { value: "Equatorial Region", label: "Equatorial Region" },
+    { value: "North Atlantic", label: "North Atlantic" },
+    { value: "Southern Ocean", label: "Southern Ocean" },
+];
+const parameterOptions = [
+    { value: "Salinity", label: "Salinity" },
+    { value: "Temperature", label: "Temperature" },
+    { value: "Pressure", label: "Pressure" },
+];
+const dataModeOptions = [
+    { value: "R", label: "Real-time (R)" },
+    { value: "D", label: "Delayed-mode (D)" },
+];
+const directionOptions = [
+    { value: "A", label: "Ascending (A)" },
+    { value: "D", label: "Descending (D)" },
+];
+const projectNameOptions = [
+    { value: "INCOIS", label: "INCOIS" },
+    { value: "NOAA", label: "NOAA" },
+    { value: "CSIRO", label: "CSIRO" },
+];
+
 export default function VisualizeTab({ floats, filters, handleFilterChange, handleApplyFilters, mapCenter, mapZoom, selectedFloat, regionSummary, onFloatSelect, onDetailClose, theme, mapTransition }) {
     const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const handleQuickSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value;
@@ -34,11 +66,8 @@ export default function VisualizeTab({ floats, filters, handleFilterChange, hand
         handleFilterChange({ target: { name: 'endDate', value: endDate } });
     };
     
-    // In-memory filter logic to simulate a real-world scenario
     const filteredFloats = useMemo(() => {
-        const { region, startDate, endDate, data_mode, direction, cycle_number, project_name } = filters;
-        
-        // Mock data to associate floats with regions and dates
+        const { region } = filters;
         const mockRegionalData = {
           "Indian Ocean": [98765, 12345],
           "North Atlantic": [54321],
@@ -47,17 +76,9 @@ export default function VisualizeTab({ floats, filters, handleFilterChange, hand
         };
         const regionFloats = mockRegionalData[region] || [];
         
-        const filteredByRegion = floats.filter(float => 
+        return floats.filter(float => 
             regionFloats.includes(float.platform_number)
         );
-
-        // This is a simple mock for date filtering, in a real app this would query a database
-        const filteredByDate = filteredByRegion.filter(float => {
-            const floatDate = new Date("2023-03-15"); // Mock a fixed date for demonstration
-            return floatDate >= new Date(startDate) && floatDate <= new Date(endDate);
-        });
-
-        return filteredByDate;
     }, [floats, filters]);
     
     const handleFloatIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,35 +124,56 @@ export default function VisualizeTab({ floats, filters, handleFilterChange, hand
                 </div>
             </FilterGroup>
             <FilterGroup label="Region" animationDelay="0.1s">
-              <select name="region" value={filters.region} onChange={handleFilterChange} className="filter-input">
-                <option value="">Select</option>
-                <option>Indian Ocean</option>
-                <option>Equatorial Region</option>
-                <option>North Atlantic</option>
-                <option>Southern Ocean</option>
-              </select>
+                <Select
+                    menuPortalTarget={isMounted ? document.body : null}
+                    menuPosition="fixed"
+                    name="region"
+                    options={regionOptions}
+                    styles={customSelectStyles}
+                    placeholder="Select"
+                    isClearable
+                    onChange={handleFilterChange}
+                    value={regionOptions.find(o => o.value === filters.region) || null}
+                />
             </FilterGroup>
             <FilterGroup label="Parameter" animationDelay="0.2s">
-              <select name="parameter" value={filters.parameter} onChange={handleFilterChange} className="filter-input">
-                <option value="">Select</option>
-                <option>Salinity</option>
-                <option>Temperature</option>
-                <option>Pressure</option>
-              </select>
+              <Select
+                    menuPortalTarget={isMounted ? document.body : null}
+                    menuPosition="fixed"
+                    name="parameter"
+                    options={parameterOptions}
+                    styles={customSelectStyles}
+                    placeholder="Select"
+                    isClearable
+                    onChange={handleFilterChange}
+                    value={parameterOptions.find(o => o.value === filters.parameter) || null}
+                />
             </FilterGroup>
             <FilterGroup label="Data Mode" animationDelay="0.3s">
-                <select name="data_mode" value={filters.data_mode} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option value="R">Real-time (R)</option>
-                    <option value="D">Delayed-mode (D)</option>
-                </select>
+                <Select
+                    menuPortalTarget={isMounted ? document.body : null}
+                    menuPosition="fixed"
+                    name="data_mode"
+                    options={dataModeOptions}
+                    styles={customSelectStyles}
+                    placeholder="Select"
+                    isClearable
+                    onChange={handleFilterChange}
+                    value={dataModeOptions.find(o => o.value === filters.data_mode) || null}
+                />
             </FilterGroup>
             <FilterGroup label="Profiling Direction" animationDelay="0.4s">
-                <select name="direction" value={filters.direction} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option value="A">Ascending (A)</option>
-                    <option value="D">Descending (D)</option>
-                </select>
+                <Select
+                    menuPortalTarget={isMounted ? document.body : null}
+                    menuPosition="fixed"
+                    name="direction"
+                    options={directionOptions}
+                    styles={customSelectStyles}
+                    placeholder="Select"
+                    isClearable
+                    onChange={handleFilterChange}
+                    value={directionOptions.find(o => o.value === filters.direction) || null}
+                />
             </FilterGroup>
             <FilterGroup label="Cycle Number" animationDelay="0.5s">
                 <input 
@@ -144,12 +186,17 @@ export default function VisualizeTab({ floats, filters, handleFilterChange, hand
                 />
             </FilterGroup>
             <FilterGroup label="Project Name" animationDelay="0.6s">
-                <select name="project_name" value={filters.project_name} onChange={handleFilterChange} className="filter-input">
-                    <option value="">Select</option>
-                    <option>INCOIS</option>
-                    <option>NOAA</option>
-                    <option>CSIRO</option>
-                </select>
+                <Select
+                    menuPortalTarget={isMounted ? document.body : null}
+                    menuPosition="fixed"
+                    name="project_name"
+                    options={projectNameOptions}
+                    styles={customSelectStyles}
+                    placeholder="Select"
+                    isClearable
+                    onChange={handleFilterChange}
+                    value={projectNameOptions.find(o => o.value === filters.project_name) || null}
+                />
             </FilterGroup>
             <FilterGroup label="Float ID" animationDelay="0.7s">
                 <div className="relative">

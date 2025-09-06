@@ -69,17 +69,20 @@ export default function ChatVisuals({ theme, selectedVisual, onClose, floats, ma
             break;
         case 'Animated Trajectory':
             content = (
-                <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
-                    <AnimatedTrajectoryMap
-                      center={mapCenter}
-                      zoom={mapZoom}
-                      selectedFloatId={selectedFloat?.id}
-                      onFloatSelect={onFloatSelect}
-                      transition='instant'
-                      floats={floats}
-                      theme={theme}
-                      animationSpeed={3000}
-                    />
+                <div className="w-full h-full flex flex-col">
+                    <h2 className="text-xl font-bold text-center py-2 text-foreground">Trajectory</h2>
+                    <div className="flex-1 rounded-lg overflow-hidden shadow-md">
+                        <AnimatedTrajectoryMap
+                          center={mapCenter}
+                          zoom={mapZoom}
+                          selectedFloatId={selectedFloat?.id}
+                          onFloatSelect={onFloatSelect}
+                          transition='instant'
+                          floats={floats}
+                          theme={theme}
+                          animationSpeed={3000}
+                        />
+                    </div>
                 </div>
             );
             break;
@@ -92,7 +95,7 @@ export default function ChatVisuals({ theme, selectedVisual, onClose, floats, ma
             <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted/50 transition-colors" title="Close Visual">
                 <X size={20} />
             </button>
-            <div className="w-full h-[80%] aspect-square max-w-full max-h-[calc(100vh-160px)] flex items-center justify-center">
+            <div className="w-full h-full max-w-full max-h-[calc(100vh-160px)] flex items-center justify-center">
                 {content}
             </div>
         </div>
