@@ -13,9 +13,8 @@ import CompareTab from "./components/tabs/CompareTab";
 import InsightsTab from "./components/tabs/InsightsTab";
 import AboutTab from "./components/tabs/AboutTab";
 import NewbieHelper from "./components/tabs/newbie/NewbieHelper";
-import NewbieDiagram from "./components/tabs/newbie/NewbieDiagram";
 import { Tab, MapTransition, Mode } from "./types";
-import { generateMockFloats } from "./services/mockDataService"; // Import the new service
+import { generateMockFloats } from "./services/mockDataService";
 
 export default function Page() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -24,8 +23,8 @@ export default function Page() {
   const [messages, setMessages] = useState([]);
   
   // State for map and float data
-  const [allFloats, setAllFloats] = useState([]);
-  const [filteredFloats, setFilteredFloats] = useState([]);
+  const allFloats = useMemo(() => generateMockFloats(75), []); // Memoized
+  const [filteredFloats, setFilteredFloats] = useState(allFloats);
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([5, 80]);
   const [mapZoom, setMapZoom] = useState(4);
   const [selectedFloat, setSelectedFloat] = useState(null);
@@ -42,13 +41,6 @@ export default function Page() {
   });
   const [isChatting, setIsChatting] = useState(false);
   const [showWaveAnimation, setShowWaveAnimation] = useState(false);
-
-  // Generate a dynamic set of floats on initial load
-  useEffect(() => {
-    const dynamicFloats = generateMockFloats(75); // Generate 75 floats for a dense map
-    setAllFloats(dynamicFloats);
-    setFilteredFloats(dynamicFloats); // Initially, show all floats
-  }, []);
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
   
@@ -85,19 +77,14 @@ export default function Page() {
     setMapZoom(7); 
   };
   
-  // This function now performs realistic, multi-condition filtering
   const handleApplyFilters = () => {
     let newFilteredFloats = [...allFloats];
 
-    // Filter by Float ID (highest priority)
+    // Filter by Float ID
     if (filters.floatId) {
         const targetFloat = allFloats.find(f => f.platform_number.toString() === filters.floatId);
         newFilteredFloats = targetFloat ? [targetFloat] : [];
     } else {
-        // Filter by Region
-        if (filters.region) {
-            newFilteredFloats = newFilteredFloats.filter(f => f.region === filters.region);
-        }
         // Filter by Project Name
         if (filters.project_name) {
             newFilteredFloats = newFilteredFloats.filter(f => f.project_name === filters.project_name);
@@ -113,21 +100,14 @@ export default function Page() {
     
     setFilteredFloats(newFilteredFloats);
 
-    // Update map view based on results
     if (newFilteredFloats.length === 1) {
         handleFloatSelect(newFilteredFloats[0]);
     } else {
         setSelectedFloat(null);
-        const regionCenters: { [key: string]: { center: LatLngExpression, zoom: number } } = {
-            "Indian Ocean": { center: [0, 80], zoom: 4 },
-            "Arabian Sea": { center: [15, 65], zoom: 5 },
-            "Bay of Bengal": { center: [15, 90], zoom: 5 },
-        };
-        const centerConfig = regionCenters[filters.region] || regionCenters["Indian Ocean"];
-        setMapCenter(centerConfig.center);
-        setMapZoom(centerConfig.zoom);
+        setMapCenter([5, 80]);
+        setMapZoom(4);
         setRegionSummary({ 
-            region: filters.region || "Indian Ocean", 
+            region: "Filtered Results", 
             floats: newFilteredFloats 
         });
     }
@@ -136,11 +116,9 @@ export default function Page() {
   
   const handleDetailClose = () => { 
     setSelectedFloat(null); 
-    // Do not clear the region summary on close, to keep the filtered view
   };
 
   const renderDashboard = () => {
-    // Researcher Mode
     if (mode === "researcher") {
         switch (activeTab) {
             case "chat":
@@ -148,7 +126,7 @@ export default function Page() {
             case "visualize":
               return (
                 <VisualizeTab
-                  floats={filteredFloats} // Pass the dynamically filtered floats
+                  floats={filteredFloats}
                   filters={filters}
                   setFilters={setFilters}
                   handleApplyFilters={handleApplyFilters}
@@ -162,17 +140,15 @@ export default function Page() {
                   mapTransition={mapTransition}
                 />
               );
-            // ... other researcher tabs
             case "compare": return <CompareTab theme={theme} />;
             case "insights": return <InsightsTab theme={theme} />;
             case "about": return <AboutTab />;
             default: return null;
         }
     }
-    // Newbie Mode (remains the same)
     switch (activeTab) {
       case "chat": return <NewbieHelper messages={messages} setMessages={setMessages} theme={theme} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />;
-      // ... other newbie tabs
+      default: return null;
     }
   };
 

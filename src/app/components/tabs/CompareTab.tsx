@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Download, Printer, ChevronDown, AlertTriangle, Info, CheckCircle } from 'lucide-react';
 import { usePreviewMetric, PreviewMetric as DataType } from './usePreviewMetric'; // Import the new hook and rename type
 
-import { Download, Printer } from 'lucide-react';
+
 
 
 // FIX: Use dynamic import with ssr: false to prevent server-side rendering errors
