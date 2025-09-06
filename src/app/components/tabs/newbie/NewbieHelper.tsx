@@ -4,7 +4,7 @@
 
 import React, { useState, useRef, useEffect, FC } from 'react';
 import { Send, User, SquarePlus } from 'lucide-react';
-import NewbieGreeting from '../../chat/NewbieGreeting'; 
+import NewbieGreeting from '../../chat/NewbieGreeting';
 
 const NavIcon: FC = () => (
     <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-md">
@@ -33,7 +33,7 @@ export default function NewbieHelper({ messages, setMessages, theme, handleNewCh
         } else {
              setMessages((prev) => [...prev, { id: Date.now(), who: 'user', text: userInput }]);
         }
-        
+
         setInputMessage("");
 
         setTimeout(() => {
@@ -50,7 +50,7 @@ export default function NewbieHelper({ messages, setMessages, theme, handleNewCh
 
     return (
         <section className="h-full animate-fade-in">
-            <div className="bg-card/80 backdrop-blur-lg rounded-xl shadow-2xl shadow-primary/20 h-full flex flex-col">
+            <div className={`bg-card/80 backdrop-blur-lg rounded-xl shadow-lg h-full flex flex-col ${messages.length > 0 ? 'shadow-cyan-400/15' : ''}`}>
                 <div className="p-4 sm:p-6 flex flex-col h-full">
                     <div className="flex items-center justify-between text-xl font-bold mb-4 border-b pb-3 text-foreground/80 dark:text-foreground/80 border-white/10 dark:border-gray-700/50">
                         <h2>FloatChat Bot</h2>

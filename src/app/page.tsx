@@ -1,3 +1,5 @@
+// src/app/page.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -85,10 +87,9 @@ export const mockFloats = [
 export default function Page() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [mode, setMode] = useState<Mode>("newbie");
-  const [showWaveAnimation, setShowWaveAnimation] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [messages, setMessages] = useState([]);
-  const [selectedVisual, setSelectedVisual] = useState<string | null>(null); // State for selected visual in chat
+  const [selectedVisual, setSelectedVisual] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
   const [mapZoom, setMapZoom] = useState(3);
   const [selectedFloat, setSelectedFloat] = useState(null);
@@ -124,16 +125,12 @@ export default function Page() {
 
 
   const handleModeToggle = () => {
-    setShowWaveAnimation(true);
-    setTimeout(() => {
-        const isSwitchingToNewbie = mode === "researcher";
-        setMode(isSwitchingToNewbie ? "newbie" : "researcher");
-        setActiveTab("chat");
-        setMessages([]);
-        setSelectedVisual(null);
-        setIsChatting(false);
-        setShowWaveAnimation(false);
-    }, 1200);
+    const isSwitchingToNewbie = mode === "researcher";
+    setMode(isSwitchingToNewbie ? "newbie" : "researcher");
+    setActiveTab("chat");
+    setMessages([]);
+    setSelectedVisual(null);
+    setIsChatting(false);
   };
 
   const handleNewChat = () => {
@@ -238,8 +235,6 @@ export default function Page() {
           isSidebarOpen ? "md:ml-64" : "md:ml-20"
         }`}
       >
-        {showWaveAnimation && <WaveAnimation />}
-
         <div className="flex h-full">
           <section className="flex-1 h-full">{renderDashboard()}</section>
         </div>

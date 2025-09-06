@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from "react";
-import { Send, Sparkles, SquarePlus, X } from "lucide-react"; // Changed single quote to double quote
+import { Send, Sparkles, SquarePlus, X } from "lucide-react";
 import ChatVisuals from "../chat/ChatVisuals";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
@@ -127,7 +127,7 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
 
   return (
     <div className="grid md:grid-cols-5 gap-6 h-full">
-      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 relative transition-all duration-500 ${isPanelOpen ? 'md:col-span-3' : 'md:col-span-5'}`}>
+      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-lg shadow-cyan-400/15 p-6 sm:p-8 relative transition-all duration-500 ${isPanelOpen ? 'md:col-span-3' : 'md:col-span-5'}`}>
         <div className="flex items-center justify-between text-xl font-semibold text-foreground/80 mb-6 pb-4 border-b border-white/10 dark:border-gray-700/50">
           <div className="flex items-center">
             <Sparkles size={24} className="mr-3 text-primary" />
