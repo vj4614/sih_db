@@ -1,3 +1,5 @@
+// src/app/components/ui/Map.tsx
+
 "use client";
 
 import React, { useEffect } from "react";
@@ -12,6 +14,11 @@ import {
 import L, { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Import leaflet images directly to resolve issues with bundlers like Turbopack
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
 // Declare icon variables to be assigned later on the client-side
 let floatIcon: L.Icon;
 let selectedFloatIcon: L.Icon;
@@ -22,9 +29,9 @@ if (typeof window !== 'undefined') {
     // This is necessary because Next.js bundles can break the default icon URLs
     delete (L.Icon.Default as any).prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
-        iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
-        iconUrl: require("leaflet/dist/images/marker-icon.png"),
-        shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+        iconRetinaUrl: iconRetinaUrl.src,
+        iconUrl: iconUrl.src,
+        shadowUrl: shadowUrl.src,
     });
 
     floatIcon = new L.Icon({
@@ -69,8 +76,11 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
   // We still need this check here for the main component's render logic
   if (typeof window === "undefined") return null;
 
-  const lightTileUrl = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-  const darkTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+  const lightTileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+  const darkTileUrl = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
+
+  const lightAttribution = 'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community';
+  const darkAttribution = '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   return (
     <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
@@ -80,12 +90,15 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
       <TileLayer
         key={theme} 
         url={theme === 'dark' ? darkTileUrl : lightTileUrl}
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        attribution={theme === 'dark' ? darkAttribution : lightAttribution}
       />
 
       {floats.map((f) => (
           <React.Fragment key={f.id}>
-            <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            {/* FIX: Only render Polyline if trajectory data exists and is not empty */}
+            {f.trajectory && f.trajectory.length > 0 && (
+              <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            )}
             <Marker
               icon={selectedFloatId === f.id ? selectedFloatIcon : floatIcon}
               position={f.position}
@@ -94,7 +107,7 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
               <Popup>
                 <div className="text-sm">
                     <p className="font-bold text-base">Float #{f.platform_number}</p>
-                    <p><strong>Project:</strong> {f.project_name}</p>
+                    {f.project_name && <p><strong>Project:</strong> {f.project_name}</p>}
                     <p>Click marker to see details.</p>
                 </div>
               </Popup>
