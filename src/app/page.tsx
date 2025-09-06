@@ -34,6 +34,7 @@ const TABS = [
 
 
 export const mockFloats = [
+  // Indian Ocean Floats
   {
     id: 1,
     platform_number: 98765,
@@ -50,6 +51,7 @@ export const mockFloats = [
       [-12.0, 84.0],
       [-10.0, 85.0],
     ] as LatLngExpression[],
+    region: "Indian Ocean"
   },
   {
     id: 2,
@@ -65,6 +67,7 @@ export const mockFloats = [
       [-16.0, 79.0],
       [-15.0, 78.0],
     ] as LatLngExpression[],
+    region: "Indian Ocean"
   },
   {
     id: 3,
@@ -80,6 +83,94 @@ export const mockFloats = [
       [-11.5, 83.5],
       [-13.0, 83.0],
     ] as LatLngExpression[],
+    region: "Indian Ocean"
+  },
+  // North Atlantic Floats
+  {
+    id: 4,
+    platform_number: 67890,
+    project_name: "UKHO",
+    last_cycle: 10,
+    position: [45.0, -30.0] as LatLngExpression,
+    trajectory: [
+      [40.0, -25.0],
+      [42.0, -28.0],
+      [44.0, -32.0],
+      [45.0, -30.0],
+    ] as LatLngExpression[],
+    region: "North Atlantic"
+  },
+  {
+    id: 5,
+    platform_number: 11223,
+    project_name: "IFREMER",
+    last_cycle: 18,
+    position: [50.0, -40.0] as LatLngExpression,
+    trajectory: [
+      [48.0, -35.0],
+      [49.0, -38.0],
+      [51.0, -41.0],
+      [50.0, -40.0],
+    ] as LatLngExpression[],
+    region: "North Atlantic"
+  },
+  // Southern Ocean Floats
+  {
+    id: 6,
+    platform_number: 33445,
+    project_name: "BAS",
+    last_cycle: 30,
+    position: [-65.0, 10.0] as LatLngExpression,
+    trajectory: [
+      [-60.0, 5.0],
+      [-62.0, 8.0],
+      [-64.0, 12.0],
+      [-65.0, 10.0],
+    ] as LatLngExpression[],
+    region: "Southern Ocean"
+  },
+  {
+    id: 7,
+    platform_number: 55667,
+    project_name: "AWI",
+    last_cycle: 25,
+    position: [-70.0, -20.0] as LatLngExpression,
+    trajectory: [
+      [-68.0, -15.0],
+      [-69.0, -18.0],
+      [-71.0, -22.0],
+      [-70.0, -20.0],
+    ] as LatLngExpression[],
+    region: "Southern Ocean"
+  },
+  // Equatorial Region Floats
+  {
+    id: 8,
+    platform_number: 77889,
+    project_name: "PMEL",
+    last_cycle: 12,
+    position: [0.0, -120.0] as LatLngExpression,
+    trajectory: [
+      [2.0, -118.0],
+      [1.0, -121.0],
+      [-1.0, -122.0],
+      [0.0, -120.0],
+    ] as LatLngExpression[],
+    region: "Equatorial Region"
+  },
+  {
+    id: 9,
+    platform_number: 99001,
+    project_name: "JAMSTEC",
+    last_cycle: 17,
+    position: [2.0, -130.0] as LatLngExpression,
+    trajectory: [
+      [4.0, -128.0],
+      [3.0, -131.0],
+      [1.0, -132.0],
+      [2.0, -130.0],
+    ] as LatLngExpression[],
+    region: "Equatorial Region"
   },
 ];
 
@@ -200,10 +291,21 @@ export default function Page() {
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
   const [mapZoom, setMapZoom] = useState(4);
   const [selectedFloat, setSelectedFloat] = useState(null);
-  const [regionSummary, setRegionSummary] = useState(null);
+  // Using an array to hold floats for the region summary
+  const [regionSummary, setRegionSummary] = useState<{ region: string, floats: any[] } | null>(null);
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [filters, setFilters] = useState({ startDate: "2023-03-01", endDate: "2023-03-31", region: "Indian Ocean", parameter: "Salinity", floatId: "" });
+  const [filters, setFilters] = useState({ 
+    startDate: "", 
+    endDate: "", 
+    region: "", 
+    parameter: "", 
+    floatId: "",
+    data_mode: "",
+    direction: "",
+    cycle_number: "",
+    project_name: ""
+  });
   const [isChatting, setIsChatting] = useState(false);
   const [showWaveAnimation, setShowWaveAnimation] = useState(false);
 
@@ -260,6 +362,7 @@ export default function Page() {
 
   const handleFloatSelect = (float) => { setMapTransition('fly'); setRegionSummary(null); setSelectedFloat(float); setMapCenter(float.position); setMapZoom(7); };
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { const { name, value } = e.target; setFilters((prev) => ({ ...prev, [name]: value })); };
+  
   const handleApplyFilters = () => {
     const targetFloat = mockFloats.find(f => f.platform_number.toString() === filters.floatId);
     if (targetFloat) {
@@ -269,12 +372,27 @@ export default function Page() {
       setMapZoom(8);
       setRegionSummary(null);
     } else {
-      setMapTransition('instant');
+      setMapTransition('fly');
       setSelectedFloat(null);
+      
+      const regionCenters: { [key: string]: { center: LatLngExpression, zoom: number } } = {
+        "Indian Ocean": { center: [0, 80], zoom: 3 },
+        "Equatorial Region": { center: [0, -120], zoom: 4 },
+        "North Atlantic": { center: [40, -40], zoom: 4 },
+        "Southern Ocean": { center: [-60, 0], zoom: 3 }
+      };
+
+      const selectedRegionData = regionCenters[filters.region];
+      if (selectedRegionData) {
+        setMapCenter(selectedRegionData.center);
+        setMapZoom(selectedRegionData.zoom);
+      } else {
+        setMapCenter([0, 80]); // Default to Indian Ocean if region is not found
+        setMapZoom(3);
+      }
+      
+      // Pass all mockFloats to the map component, regardless of region filter
       setRegionSummary({ region: filters.region, floats: mockFloats });
-      const mockRegionCenters = { "Indian Ocean": [0, 80], "Equatorial Region": [0, -120], "North Atlantic": [40, -40], "Southern Ocean": [-60, 0] };
-      setMapCenter(mockRegionCenters[filters.region] || [0, 80]);
-      setMapZoom(3);
     }
   };
   const handleDetailClose = () => { setSelectedFloat(null); setRegionSummary(null); };
@@ -295,6 +413,7 @@ export default function Page() {
         case "visualize":
           return (
             <NewbieDiagram
+              // Pass the full mockFloats array here
               floats={mockFloats}
               filters={filters}
               handleFilterChange={handleFilterChange}
@@ -324,7 +443,10 @@ export default function Page() {
         {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} selectedVisual={selectedVisual} setSelectedVisual={setSelectedVisual} handleNewChat={handleNewChat} setIsChatting={setIsChatting} floats={chatFloats} mapCenter={mapCenter} mapZoom={mapZoom} onFloatSelect={handleFloatSelect} selectedFloat={selectedFloat}/>}
         {activeTab === "visualize" && (
           <VisualizeTab
-            floats={mockFloats} filters={filters} handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}
+            // Pass the full mockFloats array here
+            floats={mockFloats}
+            filters={filters}
+            handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}
             mapCenter={mapCenter} mapZoom={mapZoom} selectedFloat={selectedFloat} regionSummary={regionSummary}
             onFloatSelect={handleFloatSelect} onDetailClose={handleDetailClose} theme={theme} mapTransition={mapTransition}
           />
