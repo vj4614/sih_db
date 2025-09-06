@@ -1,3 +1,5 @@
+// src/app/components/ui/Map.tsx
+
 "use client";
 
 import React, { useEffect } from "react";
@@ -93,7 +95,10 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
 
       {floats.map((f) => (
           <React.Fragment key={f.id}>
-            <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            {/* FIX: Only render Polyline if trajectory data exists and is not empty */}
+            {f.trajectory && f.trajectory.length > 0 && (
+              <Polyline positions={f.trajectory} color="#3b82f6" weight={2} opacity={0.7} />
+            )}
             <Marker
               icon={selectedFloatId === f.id ? selectedFloatIcon : floatIcon}
               position={f.position}
@@ -102,7 +107,7 @@ export default function Map({ center, zoom, selectedFloatId, onFloatSelect, tran
               <Popup>
                 <div className="text-sm">
                     <p className="font-bold text-base">Float #{f.platform_number}</p>
-                    <p><strong>Project:</strong> {f.project_name}</p>
+                    {f.project_name && <p><strong>Project:</strong> {f.project_name}</p>}
                     <p>Click marker to see details.</p>
                 </div>
               </Popup>
