@@ -173,15 +173,16 @@ const chatFloats = [
     last_cycle: 18,
     position: [0.0, 90.0] as LatLngExpression,
     trajectory: [
-      [0.0, 90.0],
-      [1.0, 88.0],
-      [2.0, 86.0],
-      [1.5, 85.0],
-      [0.5, 86.0],
-      [0.0, 88.0],
-      [0.5, 90.0],
-      [1.0, 92.0],
-      [0.5, 91.0],
+      [-10.0, 78.0],
+      [-9.0, 80.0],
+      [-8.0, 82.0],
+      [-7.0, 84.0],
+      [-6.0, 86.0],
+      [-5.0, 88.0],
+      [-4.0, 90.0],
+      [-3.0, 92.0],
+      [-2.0, 94.0],
+      [-1.0, 95.0],
       [0.0, 90.0],
     ] as LatLngExpression[],
     color: "#FF33F0", // Pink
@@ -204,6 +205,7 @@ export default function Page() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [filters, setFilters] = useState({ startDate: "2023-03-01", endDate: "2023-03-31", region: "Indian Ocean", parameter: "Salinity", floatId: "" });
   const [isChatting, setIsChatting] = useState(false);
+  const [showWaveAnimation, setShowWaveAnimation] = useState(false);
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
   
@@ -228,9 +230,20 @@ export default function Page() {
         setIsSidebarOpen(true);
     }
   }, [selectedVisual]);
+  
+  // Effect to hide the wave animation after 5 seconds
+  useEffect(() => {
+    if (showWaveAnimation) {
+      const timer = setTimeout(() => {
+        setShowWaveAnimation(false);
+      }, 5000); // 5 seconds, matching the CSS animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [showWaveAnimation]);
 
 
   const handleModeToggle = () => {
+    setShowWaveAnimation(true); // Trigger the animation
     const isSwitchingToNewbie = mode === "researcher";
     setMode(isSwitchingToNewbie ? "newbie" : "researcher");
     setActiveTab("chat");
@@ -281,7 +294,7 @@ export default function Page() {
           );
         case "visualize":
           return (
-            <VisualizeTab
+            <NewbieDiagram
               floats={mockFloats}
               filters={filters}
               handleFilterChange={handleFilterChange}
@@ -335,6 +348,7 @@ export default function Page() {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
+      {showWaveAnimation && <WaveAnimation />}
 
       <main
         className={`flex-1 p-4 sm:p-6 md:p-8 relative transition-all duration-300 ${
