@@ -46,7 +46,7 @@ export default function ChatVisuals({ theme, selectedVisual, onClose }) {
     }
     
     return (
-        <div className="relative h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 animate-fade-in flex flex-col items-center justify-center">
+        <div className="relative h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border-l border-white/10 dark:border-blue-800 p-6 sm:p-8 animate-fade-in flex flex-col items-center justify-center">
             <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted/50 transition-colors" title="Close Visual">
                 <X size={20} />
             </button>
