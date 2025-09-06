@@ -83,6 +83,111 @@ export const mockFloats = [
   },
 ];
 
+// New floats with more random, zig-zag trajectories for the chat visualization
+const chatFloats = [
+  {
+    id: 1,
+    platform_number: 98765,
+    project_name: "INCOIS",
+    last_cycle: 15,
+    position: [0.0, 80.0] as LatLngExpression,
+    trajectory: [
+      [10.0, 65.0],
+      [9.5, 67.0],
+      [9.0, 69.0],
+      [8.5, 71.0],
+      [7.5, 74.0],
+      [6.0, 76.0],
+      [4.5, 78.0],
+      [3.0, 80.0],
+      [1.5, 81.5],
+      [0.0, 80.0],
+      [1.0, 77.0],
+    ] as LatLngExpression[],
+    color: "#FF5733", // Orange-Red
+  },
+  {
+    id: 2,
+    platform_number: 12345,
+    project_name: "NOAA",
+    last_cycle: 22,
+    position: [-5.0, 75.0] as LatLngExpression,
+    trajectory: [
+      [-10.0, 90.0],
+      [-9.0, 88.0],
+      [-8.0, 85.0],
+      [-7.0, 82.0],
+      [-6.0, 79.0],
+      [-5.0, 77.0],
+      [-4.0, 75.0],
+      [-5.0, 73.0],
+      [-6.5, 72.0],
+      [-5.0, 75.0],
+    ] as LatLngExpression[],
+    color: "#33FF57", // Green
+  },
+  {
+    id: 3,
+    platform_number: 54321,
+    project_name: "CSIRO",
+    last_cycle: 8,
+    position: [-2.0, 86.0] as LatLngExpression,
+    trajectory: [
+      [-15.0, 80.0],
+      [-14.0, 82.0],
+      [-13.0, 84.0],
+      [-11.5, 85.5],
+      [-10.0, 87.0],
+      [-8.5, 88.0],
+      [-7.0, 87.0],
+      [-5.5, 85.0],
+      [-4.0, 84.0],
+      [-2.0, 86.0],
+    ] as LatLngExpression[],
+    color: "#FFBD33", // Yellow
+  },
+  {
+    id: 4,
+    platform_number: 78901,
+    project_name: "U-GO",
+    last_cycle: 10,
+    position: [-10.0, 78.0] as LatLngExpression,
+    trajectory: [
+      [5.0, 95.0],
+      [4.0, 93.0],
+      [3.0, 91.0],
+      [1.0, 88.0],
+      [-1.0, 85.0],
+      [-3.0, 83.0],
+      [-5.0, 81.0],
+      [-7.0, 79.0],
+      [-8.5, 77.0],
+      [-10.0, 78.0],
+    ] as LatLngExpression[],
+    color: "#6D33FF", // Purple
+  },
+  {
+    id: 5,
+    platform_number: 34567,
+    project_name: "INDIGO",
+    last_cycle: 18,
+    position: [0.0, 90.0] as LatLngExpression,
+    trajectory: [
+      [0.0, 90.0],
+      [1.0, 88.0],
+      [2.0, 86.0],
+      [1.5, 85.0],
+      [0.5, 86.0],
+      [0.0, 88.0],
+      [0.5, 90.0],
+      [1.0, 92.0],
+      [0.5, 91.0],
+      [0.0, 90.0],
+    ] as LatLngExpression[],
+    color: "#FF33F0", // Pink
+  },
+];
+
 
 export default function Page() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -90,8 +195,9 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [messages, setMessages] = useState([]);
   const [selectedVisual, setSelectedVisual] = useState<string | null>(null);
+  // Adjusted map center and zoom for the new trajectories
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([0, 80]);
-  const [mapZoom, setMapZoom] = useState(3);
+  const [mapZoom, setMapZoom] = useState(4);
   const [selectedFloat, setSelectedFloat] = useState(null);
   const [regionSummary, setRegionSummary] = useState(null);
   const [mapTransition, setMapTransition] = useState<MapTransition>('fly');
@@ -175,7 +281,7 @@ export default function Page() {
           );
         case "visualize":
           return (
-            <NewbieDiagram
+            <VisualizeTab
               floats={mockFloats}
               filters={filters}
               handleFilterChange={handleFilterChange}
@@ -202,7 +308,7 @@ export default function Page() {
     }
     return (
       <div className="max-w-7xl mx-auto h-full">
-        {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} selectedVisual={selectedVisual} setSelectedVisual={setSelectedVisual} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />}
+        {activeTab === "chat" && <ChatTab messages={messages} setMessages={setMessages} theme={theme} selectedVisual={selectedVisual} setSelectedVisual={setSelectedVisual} handleNewChat={handleNewChat} setIsChatting={setIsChatting} floats={chatFloats} mapCenter={mapCenter} mapZoom={mapZoom} onFloatSelect={handleFloatSelect} selectedFloat={selectedFloat}/>}
         {activeTab === "visualize" && (
           <VisualizeTab
             floats={mockFloats} filters={filters} handleFilterChange={handleFilterChange} handleApplyFilters={handleApplyFilters}

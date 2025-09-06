@@ -12,6 +12,11 @@ import {
 import L, { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Import leaflet images directly to resolve issues with bundlers like Turbopack
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
 // Declare icon variables to be assigned later on the client-side
 let floatIcon: L.Icon;
 let selectedFloatIcon: L.Icon;
@@ -21,9 +26,9 @@ if (typeof window !== 'undefined') {
     // Fix for default icon paths
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
-        iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
-        iconUrl: require("leaflet/dist/images/marker-icon.png"),
-        shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+        iconRetinaUrl: iconRetinaUrl.src,
+        iconUrl: iconUrl.src,
+        shadowUrl: shadowUrl.src,
     });
 
     floatIcon = new L.Icon({

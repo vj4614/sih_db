@@ -6,8 +6,9 @@ import LoadingSpinner from './LoadingSpinner';
 import { X } from 'lucide-react';
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
+const AnimatedTrajectoryMap = dynamic(() => import("../ui/AnimatedTrajectoryMap"), { ssr: false });
 
-export default function ChatVisuals({ theme, selectedVisual, onClose }) {
+export default function ChatVisuals({ theme, selectedVisual, onClose, floats, mapCenter, mapZoom, onFloatSelect, selectedFloat }) {
     const depth = [0, 100, 200, 400, 600, 800, 1000];
     const plotLayout = (title, xaxis, yaxis) => ({
         title: { text: title, font: { size: 18, family: 'Poppins', color: theme === 'dark' ? '#e6edf3' : '#1a202c', weight: '600' } },
@@ -24,22 +25,63 @@ export default function ChatVisuals({ theme, selectedVisual, onClose }) {
     let plotData = [];
     let plotLayoutConfig = {};
     let plotTitle = "";
+    let content = null;
 
     switch (selectedVisual) {
         case 'Temperature Profile':
             plotData = [{ y: depth, x: [25, 22, 18, 12, 8, 6, 5], name: 'Temp', type: 'scatter', mode: 'lines', line: { color: '#f97316', width: 3 } }];
             plotTitle = 'Temperature Profile';
             plotLayoutConfig = plotLayout(plotTitle, 'Temp (°C)', 'Depth (m)');
+            content = (
+                <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
+                    <Plot data={plotData} layout={plotLayoutConfig} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/>
+                </div>
+            );
             break;
         case 'Salinity Profile':
             plotData = [{ y: depth, x: [34.4, 35.0, 35.6, 35.8, 36.0, 35.2, 34.8], name: 'Salinity', type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 3 } }];
             plotTitle = 'Salinity Profile';
             plotLayoutConfig = plotLayout(plotTitle, 'Salinity (PSU)', 'Depth (m)');
+            content = (
+                <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
+                    <Plot data={plotData} layout={plotLayoutConfig} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/>
+                </div>
+            );
             break;
         case '2D Trajectory':
-            plotData = [{ y: [-14.0,-12.5,-11.0,-10.5,-9.0,-11.0,-12.0,-10.0], x: [75.0, 76.5, 75.5, 78.0, 79.0, 82.0, 84.0, 85.0], name: 'Trajectory', type: 'scatter', mode: 'lines', line: { color: '#10b981', width: 3 } }];
-            plotTitle = '2D Trajectory';
-            plotLayoutConfig = { ...plotLayout(plotTitle, 'Longitude', 'Latitude'), yaxis: { scaleanchor: "x", scaleratio: 1, gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb' } };
+            const trajectoryData = {
+                x: [-14.0, -12.5, -11.0, -10.5, -9.0, -11.0, -12.0, -10.0].map(p => p),
+                y: [75.0, 76.5, 75.5, 78.0, 79.0, 82.0, 84.0, 85.0].map(p => p),
+                name: 'Trajectory',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#10b981', width: 3 },
+            };
+            plotLayoutConfig = {
+                ...plotLayout('Static 2D Trajectory', 'Longitude', 'Latitude'),
+                yaxis: { scaleanchor: "x", scaleratio: 1, gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb' },
+            };
+            content = (
+                 <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
+                    <Plot data={[trajectoryData]} layout={plotLayoutConfig} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/>
+                </div>
+            );
+            break;
+        case 'Animated Trajectory':
+            content = (
+                <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
+                    <AnimatedTrajectoryMap
+                      center={mapCenter}
+                      zoom={mapZoom}
+                      selectedFloatId={selectedFloat?.id}
+                      onFloatSelect={onFloatSelect}
+                      transition='instant'
+                      floats={floats}
+                      theme={theme}
+                      animationSpeed={3000}
+                    />
+                </div>
+            );
             break;
         default:
             return <div className="flex items-center justify-center h-full"><p>No visual selected.</p></div>;
@@ -51,10 +93,8 @@ export default function ChatVisuals({ theme, selectedVisual, onClose }) {
                 <X size={20} />
             </button>
             <div className="w-full h-[80%] aspect-square max-w-full max-h-[calc(100vh-160px)] flex items-center justify-center">
-                <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
-                    <Plot data={plotData} layout={plotLayoutConfig} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/>
-                </div>
+                {content}
             </div>
         </div>
     );
-};
+}

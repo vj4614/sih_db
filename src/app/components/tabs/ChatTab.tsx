@@ -1,15 +1,16 @@
-// src/app/components/tabs/ChatTab.tsx
-
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from "react";
-import { Send, Sparkles, SquarePlus, X } from "lucide-react";
-import ChatVisuals from "../chat/ChatVisuals";
+import dynamic from "next/dynamic";
+import { Send, Sparkles, SquarePlus, X, Route } from "lucide-react";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
 import ChatOptions from "../chat/ChatOptions";
 import ChatDataOptions from "../chat/ChatDataOptions";
-import ChatDataViewer from "../chat/ChatDataViewer";
+
+// Dynamically import client-side-only components
+const ChatVisuals = dynamic(() => import("../chat/ChatVisuals"), { ssr: false });
+const ChatDataViewer = dynamic(() => import("../chat/ChatDataViewer"), { ssr: false });
 
 // Define the NavIcon for the bot's avatar
 const NavIcon: FC = () => (
@@ -19,7 +20,7 @@ const NavIcon: FC = () => (
 );
 
 
-export default function ChatTab({ messages, setMessages, theme, selectedVisual, setSelectedVisual, handleNewChat, setIsChatting }) {
+export default function ChatTab({ messages, setMessages, theme, selectedVisual, setSelectedVisual, handleNewChat, setIsChatting, floats, mapCenter, mapZoom, onFloatSelect, selectedFloat }) {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDataType, setSelectedDataType] = useState<string | null>(null);
@@ -59,6 +60,10 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
       } else if (lowerCaseMessage.includes("data") || lowerCaseMessage.includes("raw data")) {
         botResponse = { id: Date.now(), text: "Here are some data options:", sender: "bot", type: "data-options" };
         setSelectedVisual(null);
+      } else if (lowerCaseMessage.includes("trajectory") || lowerCaseMessage.includes("path")) {
+          botResponse = { id: Date.now(), text: "I can show you a map of float trajectories. Would you like to see it?", sender: "bot", type: "map-options" };
+          setSelectedVisual(null);
+          setSelectedDataType(null);
       }
       
       setMessages((prevMessages) => [
@@ -93,6 +98,15 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
     setSelectedVisual(optionName);
     setSelectedDataType(null);
   };
+  
+  const handleMapOptionSelect = (optionName) => {
+    const newUserMessage = { id: Date.now(), text: `Show me the ${optionName}`, sender: "user" };
+    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
+    
+    // Changed this to a new state to distinguish it from the static graph
+    setSelectedVisual("Animated Trajectory");
+    setSelectedDataType(null);
+  };
 
   const handleDataOptionSelect = (dataType) => {
       const newUserMessage = { id: Date.now(), text: `Show me the ${dataType} data`, sender: "user" };
@@ -117,7 +131,7 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
 
   const renderSidePanel = () => {
     if (selectedVisual) {
-      return <ChatVisuals theme={theme} selectedVisual={selectedVisual} onClose={handleClosePanel} />;
+      return <ChatVisuals theme={theme} selectedVisual={selectedVisual} onClose={handleClosePanel} floats={floats} mapCenter={mapCenter} mapZoom={mapZoom} onFloatSelect={onFloatSelect} selectedFloat={selectedFloat} />;
     }
     if (selectedDataType) {
       return <ChatDataViewer dataType={selectedDataType} onClose={handleClosePanel} />;
@@ -163,6 +177,15 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
                   <p className={message.sender === 'bot' ? 'font-mono' : 'font-medium'}>{message.text}</p>
                   {message.type === 'options' && <ChatOptions onSelect={handleGraphOptionSelect} />}
                   {message.type === 'data-options' && <ChatDataOptions onSelect={handleDataOptionSelect} />}
+                  {message.type === 'map-options' && (
+                    <div className="flex flex-col space-y-2 p-4 bg-muted/20 rounded-xl mt-4">
+                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">Map options:</h4>
+                        <button onClick={() => handleMapOptionSelect("water trajectory")} className="flex items-center gap-3 px-4 py-3 bg-card rounded-lg hover:bg-primary/10 transition-colors shadow-md text-foreground text-left">
+                            <Route size={20} className="text-primary" />
+                            <span className="font-medium">Show water trajectory</span>
+                        </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
