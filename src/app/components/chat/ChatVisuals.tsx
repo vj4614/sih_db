@@ -50,8 +50,8 @@ export default function ChatVisuals({ theme, selectedVisual, onClose }) {
             <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted/50 transition-colors" title="Close Visual">
                 <X size={20} />
             </button>
-            <div className="w-full h-full aspect-square max-w-full max-h-[calc(100vh-160px)] flex items-center justify-center">
-                <div className="w-full h-full animate-plot-appear">
+            <div className="w-full h-[80%] aspect-square max-w-full max-h-[calc(100vh-160px)] flex items-center justify-center">
+                <div className="w-full h-full animate-plot-appear rounded-lg overflow-hidden shadow-md">
                     <Plot data={plotData} layout={plotLayoutConfig} style={{ width: "100%", height: "100%" }} useResizeHandler config={{ displayModeBar: false }}/>
                 </div>
             </div>

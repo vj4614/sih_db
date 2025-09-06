@@ -1,11 +1,15 @@
+// src/app/components/tabs/ChatTab.tsx
+
 "use client";
 
 import React, { useState, useRef, useEffect, FC } from "react";
-import { Send, Sparkles, SquarePlus, X } from "lucide-react";
+import { Send, Sparkles, SquarePlus, X } from "lucide-react"; // Changed single quote to double quote
 import ChatVisuals from "../chat/ChatVisuals";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
 import ChatOptions from "../chat/ChatOptions";
+import ChatDataOptions from "../chat/ChatDataOptions";
+import ChatDataViewer from "../chat/ChatDataViewer";
 
 // Define the NavIcon for the bot's avatar
 const NavIcon: FC = () => (
@@ -18,6 +22,7 @@ const NavIcon: FC = () => (
 export default function ChatTab({ messages, setMessages, theme, selectedVisual, setSelectedVisual, handleNewChat, setIsChatting }) {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDataType, setSelectedDataType] = useState<string | null>(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -26,7 +31,7 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, selectedVisual]);
+  }, [messages, selectedVisual, selectedDataType]);
 
   const mockApiResponse = (userMessage) => {
     setIsLoading(true);
@@ -39,16 +44,21 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
       const lowerCaseMessage = userMessage.toLowerCase();
       
       let botResponse = { id: Date.now(), text: "I'm sorry, I can't provide that information right now. Please ask about float data or visuals.", sender: "bot", type: "text" };
-      let messageType = "text";
 
       if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
         botResponse = { id: Date.now(), text: "Hello there! I'm FloatChat AI. How can I assist you with ARGO float data today?", sender: "bot", type: "text" };
         setSelectedVisual(null);
+        setSelectedDataType(null);
       } else if (lowerCaseMessage.includes("meaning of life")) {
         botResponse = { id: Date.now(), text: "As an AI, I don't ponder philosophical questions, but I can help you find data on ocean life!", sender: "bot", type: "text" };
         setSelectedVisual(null);
+        setSelectedDataType(null);
       } else if (lowerCaseMessage.includes("graph") || lowerCaseMessage.includes("show") || lowerCaseMessage.includes("visuals")) {
         botResponse = { id: Date.now(), text: "What kind of visual would you like to see?", sender: "bot", type: "options" };
+        setSelectedDataType(null);
+      } else if (lowerCaseMessage.includes("data") || lowerCaseMessage.includes("raw data")) {
+        botResponse = { id: Date.now(), text: "Here are some data options:", sender: "bot", type: "data-options" };
+        setSelectedVisual(null);
       }
       
       setMessages((prevMessages) => [
@@ -64,7 +74,8 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (inputMessage.trim() && !isLoading) {
-      setSelectedVisual(null); // Clear any open visual when a new message is sent
+      setSelectedVisual(null);
+      setSelectedDataType(null);
       const newUserMessage = { id: Date.now(), text: inputMessage, sender: "user" };
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -75,26 +86,54 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
     }
   };
 
-  const handleOptionSelect = (optionName) => {
+  const handleGraphOptionSelect = (optionName) => {
     const newUserMessage = { id: Date.now(), text: `Show me the ${optionName} graph`, sender: "user" };
     setMessages((prevMessages) => [...prevMessages, newUserMessage]);
     
     setSelectedVisual(optionName);
+    setSelectedDataType(null);
   };
 
-  const handleCloseVisual = () => {
+  const handleDataOptionSelect = (dataType) => {
+      const newUserMessage = { id: Date.now(), text: `Show me the ${dataType} data`, sender: "user" };
+      setMessages((prevMessages) => [...prevMessages, newUserMessage]);
+      setSelectedDataType(dataType);
+      setSelectedVisual(null);
+  };
+
+  const handleClosePanel = () => {
     setSelectedVisual(null);
+    setSelectedDataType(null);
+  };
+
+  // Fixed handleNewChat to also reset the selected data type
+  const handleNewChatWithReset = () => {
+    handleNewChat(); // Call the original new chat function
+    setSelectedVisual(null);
+    setSelectedDataType(null);
+  };
+
+  const isPanelOpen = selectedVisual !== null || selectedDataType !== null;
+
+  const renderSidePanel = () => {
+    if (selectedVisual) {
+      return <ChatVisuals theme={theme} selectedVisual={selectedVisual} onClose={handleClosePanel} />;
+    }
+    if (selectedDataType) {
+      return <ChatDataViewer dataType={selectedDataType} onClose={handleClosePanel} />;
+    }
+    return null;
   };
 
   return (
     <div className="grid md:grid-cols-5 gap-6 h-full">
-      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 relative transition-all duration-500 ${selectedVisual !== null ? 'md:col-span-3' : 'md:col-span-5'}`}>
+      <div className={`flex flex-col h-full bg-card/80 backdrop-blur-lg rounded-2xl shadow-2xl shadow-primary/20 border border-white/10 dark:border-gray-800/20 p-6 sm:p-8 relative transition-all duration-500 ${isPanelOpen ? 'md:col-span-3' : 'md:col-span-5'}`}>
         <div className="flex items-center justify-between text-xl font-semibold text-foreground/80 mb-6 pb-4 border-b border-white/10 dark:border-gray-700/50">
           <div className="flex items-center">
             <Sparkles size={24} className="mr-3 text-primary" />
             FloatChat AI
           </div>
-          <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted/50 transition-colors" title="New Chat">
+          <button onClick={handleNewChatWithReset} className="p-2 rounded-lg hover:bg-muted/50 transition-colors" title="New Chat">
             <SquarePlus size={20} />
           </button>
         </div>
@@ -122,7 +161,8 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
                     }`}
                 >
                   <p className={message.sender === 'bot' ? 'font-mono' : 'font-medium'}>{message.text}</p>
-                  {message.type === 'options' && <ChatOptions onSelect={handleOptionSelect} />}
+                  {message.type === 'options' && <ChatOptions onSelect={handleGraphOptionSelect} />}
+                  {message.type === 'data-options' && <ChatDataOptions onSelect={handleDataOptionSelect} />}
                 </div>
               </div>
             ))
@@ -164,9 +204,9 @@ export default function ChatTab({ messages, setMessages, theme, selectedVisual, 
           </div>
         </form>
       </div>
-      {selectedVisual !== null && (
+      {isPanelOpen && (
         <div className="md:col-span-2 h-full">
-            <ChatVisuals theme={theme} selectedVisual={selectedVisual} onClose={handleCloseVisual} />
+            {renderSidePanel()}
         </div>
       )}
     </div>
