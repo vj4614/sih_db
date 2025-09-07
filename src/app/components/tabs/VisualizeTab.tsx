@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { Sparkles, Search, Loader, SlidersHorizontal } from 'lucide-react';
 import SidePanel from "../ui/SidePanel";
 import FilterGroup from "../ui/FilterGroup";
+import TuningIndicator from "../ui/TuningIndicator";
 
 const Map = dynamic(() => import("../ui/Map"), {
   ssr: false,
@@ -121,6 +122,7 @@ export default function VisualizeTab({ floats, filters, setFilters, handleApplyF
 
             {/* Map Area */}
             <div className="relative col-span-3 bg-card rounded-xl shadow-lg overflow-hidden flex-1">
+                <TuningIndicator year={filters.year} month={filters.month} />
                 <Map 
                     center={mapCenter} 
                     zoom={mapZoom} 

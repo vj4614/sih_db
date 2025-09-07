@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { LatLngExpression } from "leaflet";
-import { Compass, GitCompare, MessageCircle, Zap, Info } from "lucide-react";
+import { motion } from "framer-motion";
+import { SlidersHorizontal } from "lucide-react";
 
 import Header from "./components/ui/Header";
 import WaveAnimation from "./components/ui/WaveAnimation";
@@ -13,6 +14,7 @@ import CompareTab from "./components/tabs/CompareTab";
 import InsightsTab from "./components/tabs/InsightsTab";
 import AboutTab from "./components/tabs/AboutTab";
 import NewbieHelper from "./components/tabs/newbie/NewbieHelper";
+import TuneModal from "./components/ui/TuneModal";
 import { Tab, MapTransition, Mode } from "./types";
 import { generateMockFloats } from "./services/mockDataService";
 
@@ -22,8 +24,7 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<Tab>("visualize");
   const [messages, setMessages] = useState([]);
   
-  // State for map and float data
-  const allFloats = useMemo(() => generateMockFloats(75), []); // Memoized
+  const allFloats = useMemo(() => generateMockFloats(75), []);
   const [filteredFloats, setFilteredFloats] = useState(allFloats);
   const [mapCenter, setMapCenter] = useState<LatLngExpression>([5, 80]);
   const [mapZoom, setMapZoom] = useState(4);
@@ -37,10 +38,14 @@ export default function Page() {
     endDate: "", 
     region: "", 
     project_name: "",
-    floatId: ""
+    floatId: "",
+    year: "",
+    month: ""
   });
   const [isChatting, setIsChatting] = useState(false);
   const [showWaveAnimation, setShowWaveAnimation] = useState(false);
+  const [isTuneModalOpen, setIsTuneModalOpen] = useState(false);
+  const [showTuningAnimation, setShowTuningAnimation] = useState(false);
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
   
@@ -78,18 +83,17 @@ export default function Page() {
   };
   
   const handleApplyFilters = () => {
-    let newFilteredFloats = [...allFloats];
+    setShowTuningAnimation(true);
+    setTimeout(() => setShowTuningAnimation(false), 1500);
 
-    // Filter by Float ID
+    let newFilteredFloats = [...allFloats];
     if (filters.floatId) {
         const targetFloat = allFloats.find(f => f.platform_number.toString() === filters.floatId);
         newFilteredFloats = targetFloat ? [targetFloat] : [];
     } else {
-        // Filter by Project Name
         if (filters.project_name) {
             newFilteredFloats = newFilteredFloats.filter(f => f.project_name === filters.project_name);
         }
-        // Filter by Date Range
         if (filters.startDate) {
             newFilteredFloats = newFilteredFloats.filter(f => f.date >= filters.startDate);
         }
@@ -122,7 +126,7 @@ export default function Page() {
     if (mode === "researcher") {
         switch (activeTab) {
             case "chat":
-              return <ChatTab messages={messages} setMessages={setMessages} theme={theme} handleNewChat={handleNewChat} setIsChatting={setIsChatting} />;
+              return <ChatTab messages={messages} setMessages={setMessages} theme={theme} handleNewChat={handleNewChat} setIsChatting={setIsChatting} filters={filters} setFilters={setFilters} />;
             case "visualize":
               return (
                 <VisualizeTab
@@ -152,6 +156,8 @@ export default function Page() {
     }
   };
 
+  const isTuningActive = filters.year || filters.month;
+
   return (
     <div className="flex h-screen bg-background text-foreground font-sans">
       <Header
@@ -166,7 +172,40 @@ export default function Page() {
       />
       {showWaveAnimation && <WaveAnimation />}
 
+      <TuneModal 
+        isOpen={isTuneModalOpen}
+        onClose={() => setIsTuneModalOpen(false)}
+        filters={filters}
+        setFilters={setFilters}
+        onApply={handleApplyFilters}
+      />
+
       <main className={`flex-1 p-4 sm:p-6 md:p-8 relative transition-all duration-300 ${isSidebarOpen ? "md:ml-64" : "md:ml-20"}`}>
+        <div className="absolute top-6 right-6 z-20">
+            <motion.button
+              onClick={() => setIsTuneModalOpen(true)}
+              className={`p-3 rounded-full transition-all duration-300 shadow-lg ${isTuningActive ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground'}`}
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              whileTap={{ scale: 0.9 }}
+              title="Tune Data Context"
+            >
+              <SlidersHorizontal size={20} />
+            </motion.button>
+            {showTuningAnimation && (
+                <motion.div
+                    className="absolute top-1/2 left-1/2 w-32 h-32"
+                    initial={{ opacity: 1, scale: 0 }}
+                    animate={{ opacity: 0, scale: 2 }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    style={{
+                        borderRadius: '50%',
+                        border: '2px solid var(--primary)',
+                        transform: 'translate(-50%, -50%)'
+                    }}
+                />
+            )}
+        </div>
+
         <div className="flex h-full">
           <section className="flex-1 h-full">{renderDashboard()}</section>
         </div>

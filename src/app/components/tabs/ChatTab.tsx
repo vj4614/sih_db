@@ -8,7 +8,8 @@ import { Send, Sparkles, SquarePlus } from "lucide-react";
 import ChatGreeting from "../chat/ChatGreeting";
 import OceanLoadingAnimation from "../chat/OceanLoadingAnimation";
 import { AIMessage, HistoryItem } from "@/app/types";
-import SuggestedPrompts from "../chat/SuggestedPrompts"; // Import the new component
+import SuggestedPrompts from "../chat/SuggestedPrompts";
+import TuningIndicator from "../ui/TuningIndicator";
 
 const ChatVisuals = dynamic(() => import("../chat/ChatVisuals"), { ssr: false });
 
@@ -18,12 +19,12 @@ const NavIcon: FC = () => (
     </div>
 );
 
-export default function ChatTab({ messages, setMessages, theme, handleNewChat, setIsChatting }) {
+export default function ChatTab({ messages, setMessages, theme, handleNewChat, setIsChatting, filters, setFilters }) {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeGraphData, setActiveGraphData] = useState(null);
   const messagesEndRef = useRef(null);
-  const formRef = useRef<HTMLFormElement>(null); // Ref for the form
+  const formRef = useRef<HTMLFormElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,7 +34,7 @@ export default function ChatTab({ messages, setMessages, theme, handleNewChat, s
     scrollToBottom();
   }, [messages, activeGraphData]);
 
-  const getGeminiResponse = async (userMessage: string) => {
+  const getApiResponse = async (userMessage: string) => {
     setIsLoading(true);
     setActiveGraphData(null); 
 
@@ -42,12 +43,14 @@ export default function ChatTab({ messages, setMessages, theme, handleNewChat, s
     }
 
     const botMessageId = crypto.randomUUID();
+    // Show a placeholder while waiting
     setMessages((prevMessages) => [
       ...prevMessages,
-      { id: botMessageId, text: "", sender: "bot", graphData: null },
+      { id: botMessageId, text: "", sender: "bot", graphData: null, isLoading: true },
     ]);
     
     const history: HistoryItem[] = messages
+      .filter(m => !m.isLoading) // Exclude loading placeholders from history
       .slice(-6) 
       .map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'model',
@@ -57,47 +60,34 @@ export default function ChatTab({ messages, setMessages, theme, handleNewChat, s
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage, history }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, history, year: filters.year, month: filters.month }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error(`Error: ${response.statusText}`);
-      }
+      const data: AIMessage | { error: string } = await response.json();
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let fullResponse = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fullResponse += decoder.decode(value, { stream: true });
-
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === botMessageId ? { ...msg, text: fullResponse } : msg
-          )
-        );
+      if (!response.ok) {
+        throw new Error((data as { error: string }).error || "An unknown error occurred.");
       }
       
-      const data: AIMessage = JSON.parse(fullResponse);
-      
+      const finalData = data as AIMessage;
+
+      // Update the message with the final content
       setMessages((prevMessages) =>
         prevMessages.map((msg) =>
-          msg.id === botMessageId ? { ...msg, text: data.text, graphData: data.graphData || null } : msg
+          msg.id === botMessageId 
+            ? { ...msg, text: finalData.text, graphData: finalData.graphData || null, isLoading: false } 
+            : msg
         )
       );
 
-      if (data.graphData) {
-        setActiveGraphData(data.graphData);
+      if (finalData.graphData) {
+        setActiveGraphData(finalData.graphData);
       }
 
     } catch (error) {
-      console.error("Failed to get Gemini response:", error);
-      const errorResponse = { id: botMessageId, text: "I'm sorry, an error occurred. Please try again.", sender: "bot" };
+      console.error("Failed to get API response:", error);
+      const errorResponse = { id: botMessageId, text: `An error occurred: ${error.message}`, sender: "bot", isLoading: false };
       setMessages((prevMessages) => 
         prevMessages.map(msg => msg.id === botMessageId ? errorResponse : msg)
       );
@@ -112,15 +102,13 @@ export default function ChatTab({ messages, setMessages, theme, handleNewChat, s
     if (messageToSend && !isLoading) {
       const newUserMessage = { id: crypto.randomUUID(), text: messageToSend, sender: "user" };
       setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-      getGeminiResponse(messageToSend);
+      getApiResponse(messageToSend); // Use the non-streaming function
       setInputMessage("");
     }
   };
   
-  // New handler for suggested prompts
   const handleSuggestionClick = (prompt: string) => {
     setInputMessage(prompt);
-    // Use a timeout to allow the input state to update before submitting
     setTimeout(() => {
       formRef.current?.requestSubmit();
     }, 0);
@@ -145,6 +133,7 @@ export default function ChatTab({ messages, setMessages, theme, handleNewChat, s
             <Sparkles size={24} className="mr-3 text-primary" />
             FloatChat AI
           </div>
+          <TuningIndicator year={filters.year} month={filters.month} />
           <button onClick={handleNewChatWithReset} className="p-2 rounded-lg hover:bg-muted/50 transition-colors" title="New Chat">
             <SquarePlus size={20} />
           </button>
@@ -175,20 +164,10 @@ export default function ChatTab({ messages, setMessages, theme, handleNewChat, s
                         : 'bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200'
                     }`}
                 >
-                  <p className={message.sender === 'bot' ? 'font-mono' : 'font-medium'}>{message.text}</p>
+                  {message.isLoading ? <OceanLoadingAnimation /> : <p className={message.sender === 'bot' ? 'font-mono' : 'font-medium'}>{message.text}</p>}
                 </div>
               </div>
             ))
-          )}
-          {isLoading && messages.length > 0 && messages[messages.length - 1].sender !== 'bot' && (
-             <div className="flex items-start gap-3 justify-start animate-fade-in">
-                <div className="flex-shrink-0">
-                    <NavIcon />
-                </div>
-                <div className={`max-w-[85%] px-5 py-3 rounded-xl text-base relative group bg-gradient-to-br from-blue-700 to-indigo-800 text-slate-200`}>
-                    <OceanLoadingAnimation />
-                </div>
-            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
