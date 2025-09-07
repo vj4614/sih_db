@@ -191,13 +191,42 @@ const AnimatedTrajectoryMap: React.FC<AnimatedTrajectoryMapProps> = ({
         weight: 1,
         opacity: 1,
         fillOpacity: 0.8,
-      }).addTo(markerLayerRef.current!).on('click', () => onFloatSelect(float));
+      }).addTo(markerLayerRef.current!)
+        .on('click', () => onFloatSelect(float))
+        .bindTooltip(`ID: ${float.id}`, { 
+            permanent: true, 
+            direction: 'top', 
+            offset: [0, -10],
+            className: 'float-id-label'
+        });
     });
 
   }, [animationProgress, floats, onFloatSelect, selectedFloatId]);
 
 
-  return <div ref={mapRef} className="w-full h-full rounded-lg" />;
+  return (
+    <>
+      <style jsx global>{`
+        .float-id-label {
+          background-color: rgba(255, 255, 255, 0.8);
+          border-color: rgba(0, 0, 0, 0.2);
+          border-radius: 4px;
+          color: #333;
+          font-weight: bold;
+          font-size: 12px;
+          padding: 2px 5px;
+          box-shadow: none;
+          white-space: nowrap;
+        }
+        .dark .leaflet-tooltip.float-id-label {
+          background-color: rgba(40, 40, 40, 0.8);
+          border-color: rgba(255, 255, 255, 0.2);
+          color: #eee;
+        }
+      `}</style>
+      <div ref={mapRef} className="w-full h-full" />
+    </>
+  );
 };
 
 export default AnimatedTrajectoryMap;
